@@ -3,15 +3,15 @@
 ## Context
 Repo state: only the `uv init` stub (`src/ml_runner/__init__.py` prints hello, `requires-python >=3.15`, no deps, empty README). `docs/` and `CLAUDE.md` exist but are **git-ignored** (`.gitignore` lists `docs`, `CLAUDE.md`), `.claude/` is untracked. Branch is `main`; work goes on `release/0.1.0`. Goal of A: installable CLI skeleton, wrapper + fake, config, IDs/layout, and a six-step gate. Precedence: TRD §2–4, 3, 7; ADRs 0001, 0002, 0003, 0007, 0009.
 
-On approval, before 1.1: create `release/0.1.0` from `main`; remove `docs` and `CLAUDE.md` from `.gitignore` (they are ignored today, so the plan could not be committed); save this plan to `docs/v0.1.0/plans/checkpoint-a.md`; tick the Plan cell; commit `docs: add checkpoint A plan` (staging `.gitignore`, the plan file and `tasks.md` by name) and push. The rest of `docs/`, `CLAUDE.md` and `.claude/commands/` are committed in 1.1 as the task says.
+Done on approval: `release/0.1.0` created and pushed; plan saved here and the Plan cell ticked locally. `docs/`, `CLAUDE.md` and `.claude/` stay git-ignored on purpose; nothing in them is ever committed.
 
 ## 1.1 Tooling, gate, packaging (no TDD target; verified by running)
-- `.gitignore`: remove `docs`, `CLAUDE.md`; add `.venv/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `.pyright/`, `dist/`, `mlr-runs/`, capture output folder (`fixtures-capture/`, name fixed in 2.1).
+- `.gitignore`: keep `docs`, `.claude`, `CLAUDE.md`; add `.venv/`, `__pycache__/`, `.pytest_cache/`, `.ruff_cache/`, `.pyright/`, `dist/`, `mlr-runs/`, capture output folder (`fixtures-capture/`, name fixed in 2.1).
 - `pyproject.toml`: `requires-python >=3.11`; description from README About line; `license = "MIT"`, `[project.urls]`; scripts `ml-runner = "ml_runner.cli:app"`; runtime deps `typer`, `pydantic>=2`, `platformdirs`, `tomli-w` (named in TRD §2.2); dev group `pytest`, `ruff`, `pyright`; `[tool.ruff]` (defaults + `I` import sorting), `[tool.pyright]` (standard, `src`, `tests`), `[tool.pytest.ini_options]` (`testpaths=["tests"]`). `.python-version` left alone.
 - `LICENSE` (MIT, 2026, Naresh), minimal `README.md` About line (full README is 6.1).
 - `scripts/gate.sh`: six steps from TRD §2.3, one-line result each, stop at first failure, `--only <n…>`. Verify the uv flags for steps 5–6 locally (needs Python 3.10/3.11 via uv; uv may download interpreters — that's tooling, not cloud) and note the working spelling in the script header and the task log line. Steps 4–6 need at least one test: add `tests/test_smoke.py` placeholder only if pytest exits 5 on no tests (gate treats exit 5 as fail); replaced in 1.2. Add `tests/vm/` with a trivial test that loads `src/ml_runner/vm/agent.py` by path, plus a stub `agent.py` (docstring only) so step 6 runs; real agent is 4.1.
 - Package data: `uv build`, inspect wheel for `vm/*.sh` and `agent.py` (create empty stub `startup.sh`/`shutdown.sh` placeholders); configure `uv_build` if missing. Update `requires` in `[build-system]` untouched.
-- Commit tracked: `docs/`, `CLAUDE.md`, `.claude/commands/`. Never the capture folder.
+- Never commit the capture folder; `docs/`, `CLAUDE.md`, `.claude/` are not committed.
 
 ## 1.2 Typer app (TRD §14)
 Tests first (`tests/test_cli.py`, Typer `CliRunner`): `--help` exit 0 and lists name; `--version` prints `ml-runner 0.1.0` from `__version__`; `--verbose`/`--config` accepted and stored in a context object (dataclass); unknown option exit 2; `python -m ml_runner --version` via subprocess in-process-safe (`runpy`/`subprocess` of the local interpreter, no network). Exit-code constants (0/1/2) and an `MlRunnerError` → exit 1, `UsageError` → exit 2 mapping tested.
@@ -30,12 +30,12 @@ Tests first (`tests/test_ids.py`, `tests/test_layout.py`): `ts` format `YYYYMMDD
 Code: `ids.py`, `layout.py`, pure, no I/O, no global state.
 
 ## Per-task loop
-Red (show failing for the right reason) → least code → refactor → `scripts/gate.sh` green → tick `tasks.md` + log line → one commit (`feat:`/`chore:`, subject names the change, Co-Authored-By trailer), staged by name → push. Report at end of A.
+Red (show failing for the right reason) → least code → refactor → `scripts/gate.sh` green → tick `tasks.md` + log line (local) → one commit of code and tests (`feat:`/`chore:`, subject names the change, Co-Authored-By trailer), staged by name → push. Report at end of A.
 
 ## Verification (end of A)
 `scripts/gate.sh` all six steps green; `uv tool install .` then `ml-runner --version` prints 0.1.0; `uv build` wheel contains `vm/` files; `grep -rn 'gs://' src` hits only `layout.py`; no real gcloud invoked anywhere.
 
 ## Open points (assumptions, flag on approval)
-1. `.gitignore` currently ignores `docs` and `CLAUDE.md`, contradicting task 1.1; I will remove those entries.
+1. (Resolved) `docs`, `CLAUDE.md`, `.claude` remain git-ignored; instructions updated.
 2. Stub `agent.py`, `startup.sh`, `shutdown.sh` and a placeholder test are added in 1.1 only so gate steps 6 and the package-data check are meaningful; real content is 4.x.
 3. Runtime deps (typer, pydantic, platformdirs, tomli-w) are TRD §2.2-named, so no new-dependency ADR is needed.

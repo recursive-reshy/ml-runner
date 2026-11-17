@@ -1,3 +1,7 @@
+docs
+.claude
+CLAUDE.md
+
 # Python
 __pycache__/
 *.py[cod]
@@ -14,3 +18,7 @@ build/
 # ml-runner
 mlr-runs/
 fixtures-capture/
+
+docs
+CLAUDE.md
+.claude

@@ -1,6 +1,6 @@
 # Tasks — ml-runner v0.1.0
 
-Built from `prd.md` and `trd.md` in this folder. Tasks run strictly in order. Each one is test-first (ADR 0009) and ends in its own commit.
+Built from `prd.md` and `trd.md` in this folder. Tasks run strictly in order. Each one is test-first (ADR 0009) and ends in its own commit. This folder, `CLAUDE.md` and `.claude/` are git-ignored (local only): ticks and log lines are edited on disk and never committed.
 
 **Branch:** `release/0.1.0`. Never commit to `main`, never merge, never tag.
 
@@ -8,12 +8,12 @@ Built from `prd.md` and `trd.md` in this folder. Tasks run strictly in order. Ea
 **Plan:** ⬜ Not approved · ✅ Approved (the link points to the saved plan)
 
 ## How this file works
-- **Start of a checkpoint:** in plan mode, write one plan for every task in it (files to touch, tests to write first, expected red → green path), then stop. When Naresh approves it, save the plan to the linked file, tick the Plan cell, commit, push.
+- **Start of a checkpoint:** in plan mode, write one plan for every task in it (files to touch, tests to write first, expected red → green path), then stop. When Naresh approves it, save the plan to the linked file and tick the Plan cell (no commit; the folder is git-ignored).
 - **During a checkpoint:** work through its tasks without stopping. For each task:
   1. failing tests first → green → refactor;
   2. `scripts/gate.sh` green;
-  3. tick Status and add a log line at the bottom;
-  4. commit, then push.
+  3. tick Status and add a log line at the bottom (local file);
+  4. commit the code and tests, then push.
 - **Commits** are conventional, with no scope: `feat: …`, `fix: …`, `refactor: …`, `docs: …`, `test: …`, `chore: …`. The subject names the change; the task id lives here.
 - **End of a checkpoint:** run `scripts/gate.sh`, then stop and report:
   - what was built, with commit hashes;
@@ -23,12 +23,12 @@ Built from `prd.md` and `trd.md` in this folder. Tasks run strictly in order. Ea
 
   Don't start the next checkpoint until Naresh says so.
 - Never start a task whose checkpoint Plan cell is ⬜.
-- Not covered by the PRD, TRD or an ADR (a new dependency, command, flag, file in the bucket, status)? Stop and ask. Record the decision as the next ADR (from 0011), add it to `docs/README.md` and the task's ADR column.
+- Not covered by the PRD, TRD or an ADR (a new dependency, command, flag, file in the bucket, status)? Stop and ask. Record the decision as the next ADR (from 0011), add it to `docs/README.md` and the task's ADR column (local files).
 - **Verify vendor facts** where the TRD says so (§17): use the output Naresh pastes, never a guess, and note any difference from the TRD in the log line.
 - **No test touches the network, Google Cloud or a real bucket.**
 - **GCP is Naresh's.** Claude Code never runs `gcloud`, `ml-runner` against a real project, or anything that creates or reads cloud resources. Tasks marked *With Naresh* give him exact commands; he runs them and pastes the output back.
 - **No secrets** in the repo, fixtures, logs or docs. Fixture JSON from real output has project IDs, numbers and emails replaced.
-- Update `README.md`, the architecture diagram and `CLAUDE.md` in the same commit as the change they describe.
+- Update `README.md`, the architecture diagram and `CLAUDE.md` in the same step as the change they describe; only `README.md` is tracked and committed.
 
 ---
 
@@ -37,7 +37,7 @@ Built from `prd.md` and `trd.md` in this folder. Tasks run strictly in order. Ea
 
 | ID | Task | ADRs | Status |
 | --- | --- | --- | --- |
-| 1.1 | Commit `docs/`, `CLAUDE.md`, `.claude/commands/`; pyproject fixes (TRD §2.4), dev group (`pytest`, `ruff`, `pyright`), Ruff/Pyright/pytest config, `LICENSE` (MIT); `.gitignore` (`.venv/`, caches, `dist/`, `mlr-runs/`, capture output); `scripts/gate.sh` with `--only`, uv flags for steps 5–6 verified locally and noted (TRD §2.3); package data for `vm/` checked with `uv build` | 0001, 0002, 0009 | ⬜ |
+| 1.1 | pyproject fixes (TRD §2.4), dev group (`pytest`, `ruff`, `pyright`), Ruff/Pyright/pytest config, `LICENSE` (MIT); `.gitignore` (keeps `docs`, `CLAUDE.md`, `.claude`; adds `.venv/`, caches, `dist/`, `mlr-runs/`, capture output); `scripts/gate.sh` with `--only`, uv flags for steps 5–6 verified locally and noted (TRD §2.3); package data for `vm/` checked with `uv build` | 0001, 0002, 0009 | ⬜ |
 | 1.2 | Typer app: `ml-runner --help`, `--version`, `--verbose`, `--config`, `python -m ml_runner`, exit codes 0/1/2 (TRD §14) | 0002 | ⬜ |
 | 1.3 | `Gcloud` wrapper with `Runner` protocol, `--project`/`--quiet`/`--format=json`, dry-run echo, timeouts; `GcloudError` kinds with provisional stderr fixtures; `FakeGcloud` in `tests/fakes/` (TRD §4, §15) | 0003, 0009 | ⬜ |
 | 1.4 | `Config` model, path resolution (`$ML_RUNNER_CONFIG`, platformdirs), load/save, "run init first" exit 2, `config show` and `config set` (TRD §3) | 0002 | ⬜ |
