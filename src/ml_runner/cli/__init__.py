@@ -1,6 +1,5 @@
 """The Typer app: parse, call one orchestration function, print (TRD §14)."""
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -8,15 +7,9 @@ import typer
 from typer.core import TyperGroup
 
 from ml_runner import __version__
+from ml_runner.cli.config_cmd import config_app
+from ml_runner.cli.state import State
 from ml_runner.errors import MlRunnerError
-
-
-@dataclass(frozen=True)
-class State:
-    """Global options, available to commands as `ctx.obj`."""
-
-    verbose: bool = False
-    config_path: Path | None = None
 
 
 class MlRunnerGroup(TyperGroup):
@@ -66,3 +59,4 @@ app = typer.Typer(
     name="ml-runner", cls=MlRunnerGroup, no_args_is_help=True, add_completion=False
 )
 app.callback()(root)
+app.add_typer(config_app, name="config")
