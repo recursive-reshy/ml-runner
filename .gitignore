@@ -1,4 +1,16 @@
-docs
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
 
-.claude
-CLAUDE.md
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.pyright/
+
+# ml-runner
+mlr-runs/
+fixtures-capture/
