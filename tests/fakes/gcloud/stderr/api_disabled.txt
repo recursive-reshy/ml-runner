@@ -1,0 +1,1 @@
+ERROR: (gcloud.compute.instances.list) PERMISSION_DENIED: Compute Engine API has not been used in project 123 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/compute.googleapis.com

@@ -1,0 +1,2 @@
+ERROR: (gcloud.compute.instances.create) Could not fetch resource:
+ - Quota 'NVIDIA_T4_GPUS' exceeded. Limit: 0.0 in region asia-southeast1.

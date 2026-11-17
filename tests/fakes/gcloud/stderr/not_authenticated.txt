@@ -1,0 +1,4 @@
+ERROR: (gcloud.compute.instances.list) You do not currently have an active account selected.
+Please run:
+
+  $ gcloud auth login

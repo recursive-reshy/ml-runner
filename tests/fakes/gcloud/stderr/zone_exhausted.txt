@@ -1,0 +1,2 @@
+ERROR: (gcloud.compute.instances.create) Could not fetch resource:
+ - The zone 'projects/p/zones/z' does not have enough resources available to fulfill the request. ZONE_RESOURCE_POOL_EXHAUSTED

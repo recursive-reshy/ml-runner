@@ -1,0 +1,2 @@
+ERROR: (gcloud.compute.instances.list) HttpError accessing <...>: Required 'compute.instances.list' permission for 'projects/p'
+PERMISSION_DENIED: 403 forbidden
