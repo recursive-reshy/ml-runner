@@ -4,13 +4,23 @@ from typer.testing import CliRunner
 
 from ml_runner.cli import app
 from ml_runner.cli.state import State
+from ml_runner.config import Defaults, load_config, save_config
+from ml_runner.setup import InitSettings, build_config
 from tests.fakes.fake_gcloud import FakeGcloud
-from tests.fakes.project import BUCKET, PROJECT, mutating_calls, register_mutations, register_project
+from tests.fakes.project import (
+    BUCKET,
+    PROJECT,
+    mutating_calls,
+    register_mutations,
+    register_project,
+    register_zone_and_quotas
+)
 
 runner = CliRunner()
 
 def invoke( fake: FakeGcloud, tmp_path: Path, *args: str, input: str | None = None ):
-    env = { "ML_RUNNER_CONFIG": str( tmp_path / "missing.toml" ) }
+    env = { "ML_RUNNER_CONFIG": str( tmp_path / "config.toml" ) }
+    register_zone_and_quotas( fake )
 
     return runner.invoke( app, [ "init", *args ], obj = State( runner = fake ), env = env, input = input )
 
@@ -84,8 +94,97 @@ def test_init_with_no_project_anywhere_exits_2( tmp_path: Path ) -> None:
 def test_init_honours_region_and_bucket_flags( tmp_path: Path ) -> None:
     fake = FakeGcloud()
     fresh_project( fake )
-    result = invoke( fake, tmp_path, "--project", PROJECT, "--region", "us-central1", "--bucket", "my-own", "--yes" )
+    result = invoke(
+        fake,
+        tmp_path,
+        "--project",
+        PROJECT,
+        "--region",
+        "us-central1",
+        "--zone",
+        "us-central1-a",
+        "--bucket",
+        "my-own",
+        "--yes"
+    )
     assert result.exit_code == 0, result.output
     create = next( call for call in mutating_calls( fake ) if call[ 1:4 ] == [ "storage", "buckets", "create" ] )
     assert "gs://my-own" in create
     assert "--location=us-central1" in create
+
+def test_init_writes_the_config_and_prints_its_path( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    fresh_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT, "--yes" )
+    assert result.exit_code == 0, result.output
+    path = tmp_path / "config.toml"
+    assert str( path ) in result.output
+    config = load_config( path )
+    assert ( config.project, config.region, config.zone, config.bucket ) == (
+        PROJECT,
+        "asia-southeast1",
+        "asia-southeast1-b",
+        BUCKET
+    )
+
+def test_init_dry_run_writes_no_config( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    fresh_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT, "--dry-run" )
+    assert result.exit_code == 0, result.output
+    assert not ( tmp_path / "config.toml" ).exists()
+    assert "would write" in result.output.lower()
+
+def test_init_declined_writes_no_config( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    fresh_project( fake )
+    invoke( fake, tmp_path, "--project", PROJECT, input = "n\n" )
+    assert not ( tmp_path / "config.toml" ).exists()
+
+def test_init_honours_the_zone_flag( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    register_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT, "--zone", "asia-southeast1-c" )
+    assert result.exit_code == 0, result.output
+    assert load_config( tmp_path / "config.toml" ).zone == "asia-southeast1-c"
+
+def test_init_again_keeps_the_users_defaults_and_zone( tmp_path: Path ) -> None:
+    settings = InitSettings( PROJECT, "asia-southeast1", BUCKET )
+    existing = build_config( settings, "asia-southeast1-c", None ).model_copy(
+        update = { "defaults": Defaults( gpu = "l4" ) }
+    )
+    save_config( tmp_path / "config.toml", existing )
+    fake = FakeGcloud()
+    register_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT )
+    assert result.exit_code == 0, result.output
+    config = load_config( tmp_path / "config.toml" )
+    assert config.defaults.gpu == "l4"
+    assert config.zone == "asia-southeast1-c"
+
+def test_init_prints_the_quota_summary_and_the_budgets_link( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    register_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT )
+    assert "T4: 0" in result.output
+    assert "GPUS_ALL_REGIONS" in result.output
+    assert "https://console.cloud.google.com/iam-admin/quotas" in result.output
+    assert "https://console.cloud.google.com/billing/budgets" in result.output
+
+def test_init_still_succeeds_when_quotas_cannot_be_read( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    fake.register( [ "compute", "regions", "describe" ], stderr = "ERROR: PERMISSION_DENIED 403", returncode = 1 )
+    register_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT )
+    assert result.exit_code == 0, result.output
+    assert "could not read quotas" in result.output.lower()
+    assert ( tmp_path / "config.toml" ).exists()
+
+def test_init_with_no_gpu_zone_fails_before_changing_anything( tmp_path: Path ) -> None:
+    fake = FakeGcloud()
+    fake.register_json( [ "compute", "accelerator-types", "list" ], [] )
+    fresh_project( fake )
+    result = invoke( fake, tmp_path, "--project", PROJECT, "--yes" )
+    assert result.exit_code == 2
+    assert "--region" in result.output
+    assert mutating_calls( fake ) == []

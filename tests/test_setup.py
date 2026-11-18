@@ -1,11 +1,14 @@
 import pytest
 
+from ml_runner.config import Defaults
 from ml_runner.errors import MlRunnerError, UsageError
 from ml_runner.gcloud import Gcloud
 from ml_runner.setup import (
     DEFAULT_REGION,
     InitSettings,
+    build_config,
     build_steps,
+    choose_zone,
     default_bucket,
     resolve_project,
     run_steps,
@@ -17,6 +20,7 @@ from tests.fakes.project import (
     CONDITION,
     PROJECT,
     SERVICE_ACCOUNT,
+    fixture,
     mutating_calls,
     register_mutations,
     register_project
@@ -197,3 +201,52 @@ def test_an_unknown_project_is_a_clear_error() -> None:
     fake.register( [ "projects", "describe" ], stderr = "ERROR: NOT_FOUND: project not found", returncode = 1 )
     with pytest.raises( UsageError, match = PROJECT ):
         build_steps( make_gcloud( fake ), SETTINGS )
+
+def zone_fake() -> FakeGcloud:
+    fake = FakeGcloud()
+    fake.register_json( [ "compute", "accelerator-types", "list" ], fixture( "accelerator_types" ) )
+
+    return fake
+
+def test_the_zone_is_the_first_alphabetical_one_offering_a_t4() -> None:
+    fake = zone_fake()
+    assert choose_zone( make_gcloud( fake ), DEFAULT_REGION, None ) == "asia-southeast1-b"
+
+def test_the_zone_filter_is_not_anchored_because_gcloud_reports_the_zone_as_a_url() -> None:
+    fake = zone_fake()
+    choose_zone( make_gcloud( fake ), DEFAULT_REGION, None )
+    assert "--filter=zone~asia-southeast1-" in fake.calls[ 0 ]
+
+def test_an_explicit_zone_is_used_without_calling_gcloud() -> None:
+    fake = FakeGcloud()
+    assert choose_zone( make_gcloud( fake ), DEFAULT_REGION, "asia-southeast1-c" ) == "asia-southeast1-c"
+    assert fake.calls == []
+
+def test_an_explicit_zone_outside_the_region_is_a_usage_error() -> None:
+    with pytest.raises( UsageError, match = "europe-west4-a" ):
+        choose_zone( make_gcloud( FakeGcloud() ), DEFAULT_REGION, "europe-west4-a" )
+
+def test_a_region_with_no_t4_zone_is_a_usage_error() -> None:
+    fake = FakeGcloud()
+    fake.register_json( [ "compute", "accelerator-types", "list" ], [] )
+    with pytest.raises( UsageError, match = "--region" ):
+        choose_zone( make_gcloud( fake ), DEFAULT_REGION, None )
+
+def test_the_config_is_built_from_the_settings() -> None:
+    config = build_config( SETTINGS, "asia-southeast1-b", None )
+    assert ( config.project, config.region, config.zone, config.bucket ) == (
+        PROJECT,
+        DEFAULT_REGION,
+        "asia-southeast1-b",
+        BUCKET
+    )
+    assert config.service_account == SERVICE_ACCOUNT
+    assert config.defaults == Defaults()
+
+def test_an_existing_configs_defaults_are_kept() -> None:
+    existing = build_config( SETTINGS, "asia-southeast1-c", None ).model_copy(
+        update = { "defaults": Defaults( gpu = "l4" ) }
+    )
+    config = build_config( SETTINGS, "asia-southeast1-b", existing )
+    assert config.defaults.gpu == "l4"
+    assert config.zone == "asia-southeast1-b"

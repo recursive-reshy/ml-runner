@@ -95,3 +95,9 @@ def register_mutations( fake: FakeGcloud ) -> None:
         [ "projects", "add-iam-policy-binding" ]
     ):
         fake.register( pattern )
+
+# The read-only answers `init` needs after the steps: zones offering a GPU, and quotas.
+def register_zone_and_quotas( fake: FakeGcloud ) -> None:
+    fake.register_json( [ "compute", "accelerator-types", "list" ], fixture( "accelerator_types" ) )
+    fake.register_json( [ "compute", "regions", "describe" ], fixture( "region_describe" ) )
+    fake.register_json( [ "compute", "project-info", "describe" ], fixture( "project_info" ) )

@@ -1,0 +1,44 @@
+[
+  {
+    "name": "nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-l4",
+    "maximumCardsPerInstance": 1
+  },
+  {
+    "name": "nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-l4",
+    "maximumCardsPerInstance": 1
+  },
+  {
+    "name": "nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-l4",
+    "maximumCardsPerInstance": 1
+  },
+  {
+    "name": "nvidia-tesla-t4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-tesla-t4",
+    "maximumCardsPerInstance": 1
+  },
+  {
+    "name": "nvidia-tesla-t4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-tesla-t4",
+    "maximumCardsPerInstance": 1
+  },
+  {
+    "name": "nvidia-tesla-t4-vws",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
+    "kind": "compute#acceleratorType",
+    "description": "nvidia-tesla-t4-vws",
+    "maximumCardsPerInstance": 1
+  }
+]

@@ -2,6 +2,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from ml_runner.config import Config, Defaults
 from ml_runner.errors import MlRunnerError, UsageError
 from ml_runner.gcloud import Gcloud, GcloudError
 from ml_runner.layout import bucket_uri
@@ -17,6 +18,7 @@ SELF_DELETE_ROLE_TITLE = "ml-runner self delete"
 CONDITION_EXPRESSION = 'resource.name.extract("instances/{name}").startsWith("mlr-")'
 CONDITION_TITLE = "mlr-instances-only"
 UNSET_PROJECT_VALUES = ( "", "(unset)" )
+DEFAULT_GPU_ACCELERATOR = "nvidia-tesla-t4"
 
 StepStatus = Literal[ "exists", "created", "planned" ]
 
@@ -199,6 +201,37 @@ def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
         )
 
     return Step( f"Self-delete binding for mlr-* instances ({SELF_DELETE_ROLE_ID})", is_done, apply )
+
+# Step 8 of TRD §5. `--zone` wins; otherwise the first zone alphabetically that offers the default GPU.
+# gcloud reports `zone` here as a URL (.../zones/<zone>), so the filter cannot be anchored with `^`.
+def choose_zone( gcloud: Gcloud, region: str, requested: str | None ) -> str:
+    if requested:
+        if not requested.startswith( f"{region}-" ):
+            raise UsageError( f"Zone {requested} is not in region {region}." )
+
+        return requested
+
+    offered = gcloud.json( "compute", "accelerator-types", "list", f"--filter=zone~{region}-" ) or []
+    zones = sorted(
+        accelerator[ "zone" ].rsplit( "/", 1 )[ -1 ]
+        for accelerator in offered
+        if accelerator[ "name" ] == DEFAULT_GPU_ACCELERATOR
+    )
+    if not zones:
+        raise UsageError( f"No zone in {region} offers a T4 GPU. Try another --region." )
+
+    return zones[ 0 ]
+
+# Step 9 of TRD §5. A re-run keeps the defaults the user already has.
+def build_config( settings: InitSettings, zone: str, existing: Config | None ) -> Config:
+    return Config(
+        project = settings.project,
+        region = settings.region,
+        zone = zone,
+        bucket = settings.bucket,
+        service_account = service_account_email( settings.project ),
+        defaults = existing.defaults if existing else Defaults()
+    )
 
 # Steps 1-7 of TRD §5, in order. Nothing is changed until `run_steps`.
 def build_steps( gcloud: Gcloud, settings: InitSettings ) -> list[ Step ]:
