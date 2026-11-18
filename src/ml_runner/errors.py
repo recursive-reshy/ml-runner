@@ -1,25 +1,16 @@
-"""Exit codes and the two error types the CLI turns into them (TRD §14)."""
-
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_USAGE = 2
 
-
-class MlRunnerError(Exception):
-    """An operation failed. The CLI prints `message` and exits 1.
-
-    `detail` (for example raw gcloud stderr) is printed only with --verbose.
-    """
-
+# The CLI prints `message` and exits with `exit_code`; `detail` (raw gcloud stderr) shows only with --verbose.
+class MlRunnerError( Exception ):
     exit_code = EXIT_FAILED
 
-    def __init__(self, message: str, *, detail: str = "") -> None:
-        super().__init__(message)
+    def __init__( self, message: str, *, detail: str = "" ) -> None:
+        super().__init__( message )
         self.message = message
         self.detail = detail
 
-
-class UsageError(MlRunnerError):
-    """Bad usage or configuration. The CLI prints `message` and exits 2."""
-
+# Bad usage or configuration: exit 2 instead of 1.
+class UsageError( MlRunnerError ):
     exit_code = EXIT_USAGE

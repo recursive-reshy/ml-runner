@@ -1,5 +1,3 @@
-"""The Typer app: parse, call one orchestration function, print (TRD §14)."""
-
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -11,52 +9,36 @@ from ml_runner.cli.config_cmd import config_app
 from ml_runner.cli.state import State
 from ml_runner.errors import MlRunnerError
 
-
-class MlRunnerGroup(TyperGroup):
-    """Turns `MlRunnerError` into a message on stderr and its exit code."""
-
+# Turns `MlRunnerError` into a message on stderr and its exit code.
+class MlRunnerGroup( TyperGroup ):
     # `ctx` is Any: typer vendors click, and its Context type is private.
-    def invoke(self, ctx: Any) -> Any:
+    def invoke( self, ctx: Any ) -> Any:
         try:
-            return super().invoke(ctx)
+            return super().invoke( ctx )
         except MlRunnerError as error:
-            typer.echo(f"Error: {error.message}", err=True)
+            typer.echo( f"Error: {error.message}", err = True )
             state = ctx.obj
-            if error.detail and isinstance(state, State) and state.verbose:
-                typer.echo(error.detail, err=True)
-            raise typer.Exit(error.exit_code) from error
+            if error.detail and isinstance( state, State ) and state.verbose:
+                typer.echo( error.detail, err = True )
 
+            raise typer.Exit( error.exit_code ) from error
 
-def _version_callback(value: bool) -> None:
+def _version_callback( value: bool ) -> None:
     if value:
-        typer.echo(f"ml-runner {__version__}")
+        typer.echo( f"ml-runner {__version__}" )
         raise typer.Exit()
-
 
 def root(
     ctx: typer.Context,
     version: Annotated[
         bool,
-        typer.Option(
-            "--version",
-            callback=_version_callback,
-            is_eager=True,
-            help="Show the version and exit.",
-        ),
+        typer.Option( "--version", callback = _version_callback, is_eager = True, help = "Show the version and exit." )
     ] = False,
-    verbose: Annotated[
-        bool, typer.Option("--verbose", help="Show raw gcloud output on errors.")
-    ] = False,
-    config: Annotated[
-        Path | None, typer.Option("--config", help="Path to the config file.")
-    ] = None,
+    verbose: Annotated[ bool, typer.Option( "--verbose", help = "Show raw gcloud output on errors." ) ] = False,
+    config: Annotated[ Path | None, typer.Option( "--config", help = "Path to the config file." ) ] = None
 ) -> None:
-    """Run any ML training repo on a disposable Google Cloud GPU VM."""
-    ctx.obj = State(verbose=verbose, config_path=config)
+    ctx.obj = State( verbose = verbose, config_path = config )
 
-
-app = typer.Typer(
-    name="ml-runner", cls=MlRunnerGroup, no_args_is_help=True, add_completion=False
-)
-app.callback()(root)
-app.add_typer(config_app, name="config")
+app = typer.Typer( name = "ml-runner", cls = MlRunnerGroup, no_args_is_help = True, add_completion = False )
+app.callback( help = "Run any ML training repo on a disposable Google Cloud GPU VM." )( root )
+app.add_typer( config_app, name = "config" )
