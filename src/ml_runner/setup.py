@@ -1,0 +1,243 @@
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Literal
+
+from ml_runner.errors import MlRunnerError, UsageError
+from ml_runner.gcloud import Gcloud, GcloudError
+from ml_runner.layout import bucket_uri
+
+DEFAULT_REGION = "asia-southeast1"
+REQUIRED_APIS = ( "compute.googleapis.com", "storage.googleapis.com" )
+SERVICE_ACCOUNT_NAME = "ml-runner-vm"
+SERVICE_ACCOUNT_DISPLAY_NAME = "ml-runner VMs"
+BUCKET_ROLE = "roles/storage.objectAdmin"
+SELF_DELETE_ROLE_ID = "mlRunnerSelfDelete"
+SELF_DELETE_PERMISSIONS = "compute.instances.delete,compute.instances.get"
+SELF_DELETE_ROLE_TITLE = "ml-runner self delete"
+CONDITION_EXPRESSION = 'resource.name.extract("instances/{name}").startsWith("mlr-")'
+CONDITION_TITLE = "mlr-instances-only"
+UNSET_PROJECT_VALUES = ( "", "(unset)" )
+
+StepStatus = Literal[ "exists", "created", "planned" ]
+
+@dataclass( frozen = True )
+class InitSettings:
+    project: str
+    region: str
+    bucket: str
+
+@dataclass( frozen = True )
+class Step:
+    name: str
+    is_done: Callable[ [], bool ]
+    apply: Callable[ [], None ]
+
+@dataclass( frozen = True )
+class StepResult:
+    name: str
+    status: StepStatus
+
+def default_bucket( project: str ) -> str:
+    return f"ml-runner-{project}"
+
+def service_account_email( project: str ) -> str:
+    return f"{SERVICE_ACCOUNT_NAME}@{project}.iam.gserviceaccount.com"
+
+def resolve_project( gcloud: Gcloud, flag: str | None ) -> str:
+    if flag:
+        return flag
+
+    configured = gcloud.run( "config", "get-value", "project", mutating = False ).strip()
+    if configured in UNSET_PROJECT_VALUES:
+        raise UsageError( "No project given. Pass --project or run: gcloud config set project <id>" )
+
+    return configured
+
+# Not found is an answer ("it does not exist yet"); any other error is a real failure.
+def _read_or_none( read: Callable[ [], Any ] ) -> Any | None:
+    try:
+        return read()
+    except GcloudError as error:
+        if error.kind == "not_found":
+            return None
+
+        raise
+
+def _has_binding( policy: Any, role: str, member: str, condition_title: str | None = None ) -> bool:
+    if policy is None:
+        return False
+
+    for binding in policy.get( "bindings", [] ):
+        binding_title = ( binding.get( "condition" ) or {} ).get( "title" )
+        if binding[ "role" ] == role and member in binding[ "members" ] and binding_title == condition_title:
+            return True
+
+    return False
+
+def _taken_bucket_error( bucket: str ) -> UsageError:
+    return UsageError( f"The bucket name {bucket} is taken by another project. Choose another with --bucket." )
+
+def _api_step( gcloud: Gcloud, api: str ) -> Step:
+    def is_done() -> bool:
+        enabled = gcloud.json( "services", "list", "--enabled" ) or []
+
+        return any( service[ "config" ][ "name" ] == api for service in enabled )
+
+    def apply() -> None:
+        gcloud.run( "services", "enable", api, mutating = True )
+
+    return Step( f"Enable {api}", is_done, apply )
+
+def _bucket_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+    uri = bucket_uri( settings.bucket )
+
+    def is_done() -> bool:
+        try:
+            return _read_or_none( lambda: gcloud.json( "storage", "buckets", "describe", uri ) ) is not None
+        except GcloudError as error:
+            if error.kind == "permission_denied":
+                raise _taken_bucket_error( settings.bucket ) from error
+
+            raise
+
+    def apply() -> None:
+        try:
+            gcloud.run(
+                "storage",
+                "buckets",
+                "create",
+                uri,
+                f"--location={settings.region}",
+                "--uniform-bucket-level-access",
+                "--public-access-prevention",
+                mutating = True
+            )
+        except GcloudError as error:
+            if error.kind in ( "already_exists", "permission_denied" ):
+                raise _taken_bucket_error( settings.bucket ) from error
+
+            raise
+
+    return Step( f"Bucket {uri}", is_done, apply )
+
+def _service_account_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+    email = service_account_email( settings.project )
+
+    def is_done() -> bool:
+        return _read_or_none( lambda: gcloud.json( "iam", "service-accounts", "describe", email ) ) is not None
+
+    def apply() -> None:
+        gcloud.run(
+            "iam",
+            "service-accounts",
+            "create",
+            SERVICE_ACCOUNT_NAME,
+            f"--display-name={SERVICE_ACCOUNT_DISPLAY_NAME}",
+            mutating = True
+        )
+
+    return Step( f"Service account {SERVICE_ACCOUNT_NAME}", is_done, apply )
+
+def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+    uri = bucket_uri( settings.bucket )
+    member = f"serviceAccount:{service_account_email( settings.project )}"
+
+    def is_done() -> bool:
+        policy = _read_or_none( lambda: gcloud.json( "storage", "buckets", "get-iam-policy", uri ) )
+
+        return _has_binding( policy, BUCKET_ROLE, member )
+
+    def apply() -> None:
+        gcloud.run(
+            "storage",
+            "buckets",
+            "add-iam-policy-binding",
+            uri,
+            f"--member={member}",
+            f"--role={BUCKET_ROLE}",
+            mutating = True
+        )
+
+    return Step( f"Grant {BUCKET_ROLE} on {uri}", is_done, apply )
+
+def _role_step( gcloud: Gcloud ) -> Step:
+    def is_done() -> bool:
+        return _read_or_none( lambda: gcloud.json( "iam", "roles", "describe", SELF_DELETE_ROLE_ID ) ) is not None
+
+    def apply() -> None:
+        gcloud.run(
+            "iam",
+            "roles",
+            "create",
+            SELF_DELETE_ROLE_ID,
+            f"--permissions={SELF_DELETE_PERMISSIONS}",
+            "--stage=GA",
+            f"--title={SELF_DELETE_ROLE_TITLE}",
+            mutating = True
+        )
+
+    return Step( f"Custom role {SELF_DELETE_ROLE_ID}", is_done, apply )
+
+def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+    member = f"serviceAccount:{service_account_email( settings.project )}"
+    role = f"projects/{settings.project}/roles/{SELF_DELETE_ROLE_ID}"
+
+    def is_done() -> bool:
+        policy = _read_or_none( lambda: gcloud.json( "projects", "get-iam-policy", settings.project ) )
+
+        return _has_binding( policy, role, member, CONDITION_TITLE )
+
+    def apply() -> None:
+        gcloud.run(
+            "projects",
+            "add-iam-policy-binding",
+            settings.project,
+            f"--member={member}",
+            f"--role={role}",
+            f"--condition=expression={CONDITION_EXPRESSION},title={CONDITION_TITLE}",
+            mutating = True
+        )
+
+    return Step( f"Self-delete binding for mlr-* instances ({SELF_DELETE_ROLE_ID})", is_done, apply )
+
+# Steps 1-7 of TRD §5, in order. Nothing is changed until `run_steps`.
+def build_steps( gcloud: Gcloud, settings: InitSettings ) -> list[ Step ]:
+    try:
+        gcloud.json( "projects", "describe", settings.project )
+    except GcloudError as error:
+        if error.kind in ( "not_found", "permission_denied" ):
+            raise UsageError( f"Project {settings.project} was not found or is not accessible to you." ) from error
+
+        raise
+
+    return [
+        *( _api_step( gcloud, api ) for api in REQUIRED_APIS ),
+        _bucket_step( gcloud, settings ),
+        _service_account_step( gcloud, settings ),
+        _bucket_binding_step( gcloud, settings ),
+        _role_step( gcloud ),
+        _project_binding_step( gcloud, settings )
+    ]
+
+# Reads everything first, asks once if anything would change, then applies the missing steps.
+def run_steps(
+    steps: list[ Step ],
+    confirm: Callable[ [ list[ str ] ], bool ],
+    *,
+    is_dry_run: bool
+) -> list[ StepResult ]:
+    pending = [ step for step in steps if not step.is_done() ]
+    if pending and not is_dry_run and not confirm( [ step.name for step in pending ] ):
+        raise MlRunnerError( "Cancelled. Nothing was changed." )
+
+    applied_status: StepStatus = "planned" if is_dry_run else "created"
+    results: list[ StepResult ] = []
+    for step in steps:
+        if step not in pending:
+            results.append( StepResult( step.name, "exists" ) )
+            continue
+
+        step.apply()
+        results.append( StepResult( step.name, applied_status ) )
+
+    return results

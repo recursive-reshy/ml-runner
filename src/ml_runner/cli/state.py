@@ -4,12 +4,14 @@ from pathlib import Path
 import typer
 
 from ml_runner.config import Config, config_path, load_config
+from ml_runner.gcloud import Runner
 
-# Global options, available to commands as `ctx.obj`.
+# Global options, available to commands as `ctx.obj`. `runner` is only set by tests, to swap in FakeGcloud.
 @dataclass( frozen = True )
 class State:
     verbose: bool = False
     config_path: Path | None = None
+    runner: Runner | None = None
 
 def get_config_path( ctx: typer.Context ) -> Path:
     state: State = ctx.obj

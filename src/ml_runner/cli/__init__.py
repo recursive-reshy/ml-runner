@@ -6,6 +6,7 @@ from typer.core import TyperGroup
 
 from ml_runner import __version__
 from ml_runner.cli.config_cmd import config_app
+from ml_runner.cli.init_cmd import init
 from ml_runner.cli.state import State
 from ml_runner.errors import MlRunnerError
 
@@ -37,8 +38,10 @@ def root(
     verbose: Annotated[ bool, typer.Option( "--verbose", help = "Show raw gcloud output on errors." ) ] = False,
     config: Annotated[ Path | None, typer.Option( "--config", help = "Path to the config file." ) ] = None
 ) -> None:
-    ctx.obj = State( verbose = verbose, config_path = config )
+    preset_runner = ctx.obj.runner if isinstance( ctx.obj, State ) else None
+    ctx.obj = State( verbose = verbose, config_path = config, runner = preset_runner )
 
 app = typer.Typer( name = "ml-runner", cls = MlRunnerGroup, no_args_is_help = True, add_completion = False )
 app.callback( help = "Run any ML training repo on a disposable Google Cloud GPU VM." )( root )
 app.add_typer( config_app, name = "config" )
+app.command( "init", help = "Set up the project, bucket and runner identity (safe to run again)." )( init )
