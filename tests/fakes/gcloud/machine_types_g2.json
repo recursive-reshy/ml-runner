@@ -1,0 +1,20 @@
+[
+  {
+    "name": "g2-standard-4",
+    "zone": "asia-southeast1-a",
+    "guestCpus": 4,
+    "memoryMb": 16384
+  },
+  {
+    "name": "g2-standard-4",
+    "zone": "asia-southeast1-b",
+    "guestCpus": 4,
+    "memoryMb": 16384
+  },
+  {
+    "name": "g2-standard-4",
+    "zone": "asia-southeast1-c",
+    "guestCpus": 4,
+    "memoryMb": 16384
+  }
+]

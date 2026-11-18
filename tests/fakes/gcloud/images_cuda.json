@@ -1,0 +1,14 @@
+[
+  {
+    "family": "common-cu129-ubuntu-2204-nvidia-580",
+    "name": "common-cu129-ubuntu-2204-nvidia-580-v20261111",
+    "description": "Google, Deep Learning VM with CUDA, M132, Ubuntu 22.04, CUDA 12.9, Python 3.12",
+    "status": "READY"
+  },
+  {
+    "family": "common-cu129-ubuntu-2404-nvidia-580",
+    "name": "common-cu129-ubuntu-2404-nvidia-580-v20261111",
+    "description": "Google, Deep Learning VM with CUDA, M132, Ubuntu 24.04, CUDA 12.9, Python 3.12",
+    "status": "READY"
+  }
+]

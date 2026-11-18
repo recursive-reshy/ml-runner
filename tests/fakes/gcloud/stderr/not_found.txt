@@ -1,2 +1,3 @@
 ERROR: (gcloud.compute.instances.describe) Could not fetch resource:
- - The resource 'projects/p/zones/z/instances/mlr-x' was not found
+ - The resource 'projects/my-project/zones/asia-southeast1-a/instances/mlr-no-such-instance' was not found
+

@@ -1,0 +1,32 @@
+{
+  "name": "asia-southeast1",
+  "status": "UP",
+  "kind": "compute#region",
+  "quotas": [
+    {
+      "limit": 100.0,
+      "metric": "CPUS",
+      "usage": 0.0
+    },
+    {
+      "limit": 1.0,
+      "metric": "NVIDIA_T4_GPUS",
+      "usage": 0.0
+    },
+    {
+      "limit": 1.0,
+      "metric": "PREEMPTIBLE_NVIDIA_T4_GPUS",
+      "usage": 0.0
+    },
+    {
+      "limit": 1.0,
+      "metric": "NVIDIA_L4_GPUS",
+      "usage": 0.0
+    },
+    {
+      "limit": 1.0,
+      "metric": "PREEMPTIBLE_NVIDIA_L4_GPUS",
+      "usage": 0.0
+    }
+  ]
+}

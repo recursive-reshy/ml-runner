@@ -49,7 +49,7 @@ class GcloudError( MlRunnerError ):
         self.stderr = stderr
 
 # Order matters: the first match wins (api_disabled also says PERMISSION_DENIED).
-# Patterns are pinned by tests/fakes/gcloud/stderr/*.txt (provisional until 2.1).
+# Patterns are pinned by tests/fakes/gcloud/stderr/*.txt (not_found* are real captures; the rest are provisional).
 _PATTERNS: tuple[ tuple[ ErrorKind, re.Pattern[ str ] ], ... ] = (
     ( "not_authenticated", re.compile( r"do not currently have an active account|gcloud auth login", re.IGNORECASE ) ),
     (
@@ -59,7 +59,7 @@ _PATTERNS: tuple[ tuple[ ErrorKind, re.Pattern[ str ] ], ... ] = (
     ( "quota_exceeded", re.compile( r"quota .*exceeded|QUOTA_EXCEEDED", re.IGNORECASE ) ),
     ( "zone_exhausted", re.compile( r"ZONE_RESOURCE_POOL_EXHAUSTED|does not have enough resources", re.IGNORECASE ) ),
     ( "already_exists", re.compile( r"already exists|alreadyExists", re.IGNORECASE ) ),
-    ( "not_found", re.compile( r"was not found|not found|notFound", re.IGNORECASE ) ),
+    ( "not_found", re.compile( r"was not found|not found|notFound|NOT_FOUND", re.IGNORECASE ) ),
     ( "permission_denied", re.compile( r"PERMISSION_DENIED|permission .*denied|forbidden|403", re.IGNORECASE ) )
 )
 

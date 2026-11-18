@@ -1,0 +1,9 @@
+{
+  "name": "default",
+  "kind": "compute#network",
+  "autoCreateSubnetworks": true,
+  "routingConfig": {
+    "bgpBestPathSelectionMode": "LEGACY",
+    "routingMode": "REGIONAL"
+  }
+}

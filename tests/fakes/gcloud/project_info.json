@@ -1,0 +1,16 @@
+{
+  "name": "my-project",
+  "kind": "compute#project",
+  "quotas": [
+    {
+      "limit": 32.0,
+      "metric": "CPUS_ALL_REGIONS",
+      "usage": 0.0
+    },
+    {
+      "limit": 0.0,
+      "metric": "GPUS_ALL_REGIONS",
+      "usage": 0.0
+    }
+  ]
+}
