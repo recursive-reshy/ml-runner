@@ -65,7 +65,7 @@ def _read_or_none( read: Callable[ [], Any ] ) -> Any | None:
 
         raise
 
-def _has_binding( policy: Any, role: str, member: str, condition_title: str | None = None ) -> bool:
+def has_binding( policy: Any, role: str, member: str, condition_title: str | None = None ) -> bool:
     if policy is None:
         return False
 
@@ -147,7 +147,7 @@ def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
     def is_done() -> bool:
         policy = _read_or_none( lambda: gcloud.json( "storage", "buckets", "get-iam-policy", uri ) )
 
-        return _has_binding( policy, BUCKET_ROLE, member )
+        return has_binding( policy, BUCKET_ROLE, member )
 
     def apply() -> None:
         gcloud.run(
@@ -187,7 +187,7 @@ def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
     def is_done() -> bool:
         policy = _read_or_none( lambda: gcloud.json( "projects", "get-iam-policy", settings.project ) )
 
-        return _has_binding( policy, role, member, CONDITION_TITLE )
+        return has_binding( policy, role, member, CONDITION_TITLE )
 
     def apply() -> None:
         gcloud.run(

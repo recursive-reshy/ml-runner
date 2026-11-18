@@ -101,3 +101,15 @@ def register_zone_and_quotas( fake: FakeGcloud ) -> None:
     fake.register_json( [ "compute", "accelerator-types", "list" ], fixture( "accelerator_types" ) )
     fake.register_json( [ "compute", "regions", "describe" ], fixture( "region_describe" ) )
     fake.register_json( [ "compute", "project-info", "describe" ], fixture( "project_info" ) )
+
+HEALTHY_PROJECT_QUOTAS = { "quotas": [ { "metric": "GPUS_ALL_REGIONS", "limit": 8.0, "usage": 0.0 } ] }
+
+# Everything `doctor` reads, in a healthy state: the project of `register_project`, plus
+# gcloud itself, sign-in, the network and quotas whose global limit is above zero.
+def register_healthy( fake: FakeGcloud ) -> None:
+    fake.register_json( [ "version" ], fixture( "version" ) )
+    fake.register_json( [ "auth", "list" ], fixture( "auth_list" ) )
+    fake.register_json( [ "compute", "networks", "describe" ], fixture( "network_default" ) )
+    fake.register_json( [ "compute", "regions", "describe" ], fixture( "region_describe" ) )
+    fake.register_json( [ "compute", "project-info", "describe" ], HEALTHY_PROJECT_QUOTAS )
+    register_project( fake )

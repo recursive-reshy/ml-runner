@@ -6,6 +6,7 @@ from typer.core import TyperGroup
 
 from ml_runner import __version__
 from ml_runner.cli.config_cmd import config_app
+from ml_runner.cli.doctor_cmd import doctor
 from ml_runner.cli.init_cmd import init
 from ml_runner.cli.state import State
 from ml_runner.errors import MlRunnerError
@@ -44,4 +45,5 @@ def root(
 app = typer.Typer( name = "ml-runner", cls = MlRunnerGroup, no_args_is_help = True, add_completion = False )
 app.callback( help = "Run any ML training repo on a disposable Google Cloud GPU VM." )( root )
 app.add_typer( config_app, name = "config" )
+app.command( "doctor", help = "Check gcloud, the project, the bucket, permissions and GPU quota." )( doctor )
 app.command( "init", help = "Set up the project, bucket and runner identity (safe to run again)." )( init )
