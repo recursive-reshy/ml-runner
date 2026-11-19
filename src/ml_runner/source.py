@@ -1,8 +1,10 @@
 import gzip
 import hashlib
 import os
+import re
 import subprocess
 import tarfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,6 +31,9 @@ LARGEST_FILES_SHOWN = 10
 BYTES_PER_MB = 1024 * 1024
 ARCHIVE_NAME = "snapshot.tar.gz"
 GZIP_LEVEL = 6
+HTTPS_PREFIX = "https://"
+FULL_SHA = re.compile( r"[0-9a-f]{40}" )
+LS_REMOTE_TIMEOUT_SECONDS = 30
 READ_CHUNK_BYTES = BYTES_PER_MB
 
 @dataclass( frozen = True )
@@ -158,3 +163,52 @@ def upload_snapshot( gcloud: Gcloud, bucket: str, snapshot: Snapshot ) -> bool:
     gcloud.run( "storage", "cp", str( snapshot.archive ), uri, mutating = True )
 
     return True
+
+@dataclass( frozen = True )
+class GitSource:
+    repo: str
+    ref: str
+
+# Runs `git ls-remote <url> <ref>` and returns its stdout. Never prompts for credentials.
+def ls_remote( url: str, ref: str ) -> str:
+    environment = { **os.environ, "GIT_TERMINAL_PROMPT": "0" }
+    try:
+        done = subprocess.run(
+            [ "git", "ls-remote", url, ref ],
+            capture_output = True,
+            check = False,
+            env = environment,
+            text = True,
+            timeout = LS_REMOTE_TIMEOUT_SECONDS
+        )
+    except ( FileNotFoundError, subprocess.TimeoutExpired ) as error:
+        raise UsageError( f"Could not read {url} with git: {error}" ) from error
+
+    if done.returncode != 0:
+        raise UsageError( f"Could not read {url}. Only public repositories work with --repo." )
+
+    return done.stdout
+
+def ref_exists( url: str, ref: str, runner: Callable[ [ str, str ], str ] = ls_remote ) -> bool:
+    return bool( runner( url, ref ).strip() )
+
+# A full SHA is accepted as is; any other ref must be found on the remote before anything is created.
+def check_git_source(
+    url: str,
+    ref: str,
+    runner: Callable[ [ str, str ], str ] = ls_remote
+) -> GitSource:
+    if not url.startswith( HTTPS_PREFIX ):
+        raise UsageError( f"--repo must be an {HTTPS_PREFIX} URL of a public repository, got {url!r}." )
+    if FULL_SHA.fullmatch( ref ) is None and not ref_exists( url, ref, runner ):
+        raise UsageError( f"The ref {ref!r} was not found in {url}." )
+
+    return GitSource( repo = url, ref = ref )
+
+def validate_source_flags( src: Path | None, repo: str | None, ref: str | None ) -> None:
+    if repo is not None and src is not None:
+        raise UsageError( "Use either --src or --repo, not both." )
+    if repo is not None and ref is None:
+        raise UsageError( "--repo needs --ref (a branch, a tag or a commit)." )
+    if ref is not None and repo is None:
+        raise UsageError( "--ref only applies with --repo." )
