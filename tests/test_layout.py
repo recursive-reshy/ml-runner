@@ -10,6 +10,7 @@ def test_every_path_of_the_trd_layout() -> None:
     assert layout.source( BUCKET, SHA ) == f"gs://my-bucket/sources/{SHA}.tar.gz"
     assert layout.job_json( BUCKET, "J" ) == "gs://my-bucket/jobs/J/job.json"
     assert layout.job_cancel( BUCKET, "J" ) == "gs://my-bucket/jobs/J/cancel"
+    assert layout.job_agent_log( BUCKET, "J" ) == "gs://my-bucket/jobs/J/agent.log"
     assert layout.run_dir( BUCKET, "exp", "R" ) == "gs://my-bucket/runs/exp/R"
     assert layout.run_json( BUCKET, "exp", "R" ) == "gs://my-bucket/runs/exp/R/run.json"
     assert layout.run_log( BUCKET, "exp", "R" ) == "gs://my-bucket/runs/exp/R/run.log"

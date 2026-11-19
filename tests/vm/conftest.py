@@ -35,6 +35,7 @@ def fake_bin( tmp_path: Path, monkeypatch: pytest.MonkeyPatch ) -> FakeBin:
     # Only the fakes and the system tools: a developer's real uv or nvidia-smi must never be found.
     monkeypatch.setenv( "PATH", os.pathsep.join( [ str( fake.bin ), "/usr/bin", "/bin" ] ) )
     monkeypatch.setenv( "FAKE_CALLS", str( fake.calls ) )
+    monkeypatch.setenv( "FAKE_BUCKET", str( fake.bucket ) )
 
     return fake
 

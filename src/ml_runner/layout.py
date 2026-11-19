@@ -16,6 +16,9 @@ def job_json( bucket: str, job: str ) -> str:
 def job_cancel( bucket: str, job: str ) -> str:
     return f"{jobs_root(bucket)}/{job}/cancel"
 
+def job_agent_log( bucket: str, job: str ) -> str:
+    return f"{jobs_root(bucket)}/{job}/agent.log"
+
 def runs_root( bucket: str ) -> str:
     return f"{bucket_uri(bucket)}/runs"
 

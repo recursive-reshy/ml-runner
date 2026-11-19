@@ -13,7 +13,11 @@ def project( tmp_path: Path ) -> Path:
 
     return path
 
-def test_uv_that_is_already_installed_is_not_installed_again( agent: ModuleType, project: Path, fake_bin: FakeBin ) -> None:
+def test_uv_that_is_already_installed_is_not_installed_again(
+    agent: ModuleType,
+    project: Path,
+    fake_bin: FakeBin
+) -> None:
     fake_bin.add_logging( "uv" )
     fake_bin.add_logging( "curl" )
     ( project / "pyproject.toml" ).write_text( "" )
@@ -42,7 +46,11 @@ def test_uv_falls_back_to_pip_when_the_installer_fails(
 
     assert fake_bin.lines( "python3" ) == [ "-m pip install --user uv" ]
 
-def test_uv_failing_both_ways_is_an_install_error( agent: ModuleType, fake_bin: FakeBin, monkeypatch: pytest.MonkeyPatch ) -> None:
+def test_uv_failing_both_ways_is_an_install_error(
+    agent: ModuleType,
+    fake_bin: FakeBin,
+    monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake_bin.add_logging( "curl" )
     fake_bin.add_logging( "python3" )
     monkeypatch.setenv( "FAKE_CURL_EXIT", "1" )
@@ -77,7 +85,11 @@ def test_a_pyproject_without_a_lock_syncs( agent: ModuleType, project: Path, fak
 
     assert fake_bin.lines( "uv" ) == [ "sync" ]
 
-def test_requirements_get_a_venv_and_their_bin_first_on_the_path( agent: ModuleType, project: Path, fake_bin: FakeBin ) -> None:
+def test_requirements_get_a_venv_and_their_bin_first_on_the_path(
+    agent: ModuleType,
+    project: Path,
+    fake_bin: FakeBin
+) -> None:
     fake_bin.add_logging( "uv" )
     ( project / "requirements.txt" ).write_text( "" )
 

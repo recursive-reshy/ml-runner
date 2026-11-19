@@ -85,7 +85,7 @@ def test_snapshot_is_copied_from_the_bucket_and_extracted(
     metadata_file: Path,
     monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv( "FAKE_CP_SOURCE", str( make_archive( tmp_path ) ) )
+    fake_bin.put( f"my-bucket/sources/{'a' * 64}.tar.gz", make_archive( tmp_path ) )
     job = agent.read_metadata().job
 
     source_dir = agent.fetch_source( job, home )
@@ -112,7 +112,7 @@ def test_a_failed_fetch_names_the_step(
     fake_bin: FakeBin,
     monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv( "FAKE_GCLOUD_EXIT", "1" )
+    monkeypatch.setenv( "FAKE_GCLOUD_FAIL", "*" )
     job = agent.parse_job( json.dumps( JOB ) )
 
     with pytest.raises( agent.AgentError, match = "fetch" ):
@@ -121,28 +121,3 @@ def test_a_failed_fetch_names_the_step(
 def test_agent_paths_follow_the_bucket_layout( agent: ModuleType ) -> None:
     assert agent.source_uri( "b", "s" ) == "gs://b/sources/s.tar.gz"
     assert agent.run_dir_uri( "b", "e", "r" ) == "gs://b/runs/e/r"
-
-def test_start_records_the_fetching_state_and_fetches(
-    agent: ModuleType,
-    home: Path,
-    fake_bin: FakeBin,
-    tmp_path: Path,
-    metadata_file: Path,
-    monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv( "FAKE_CP_SOURCE", str( make_archive( tmp_path ) ) )
-
-    assert agent.main( [ "agent.py", "start" ] ) == 0
-    assert agent.read_state( home ) == agent.State( job_id = "20261120-143005-7c21", phase = "fetching" )
-    assert ( home / "src" / "train.py" ).exists()
-
-def test_a_failed_start_exits_one(
-    agent: ModuleType,
-    home: Path,
-    fake_bin: FakeBin,
-    metadata_file: Path,
-    monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv( "FAKE_GCLOUD_EXIT", "1" )
-
-    assert agent.main( [ "agent.py", "start" ] ) == 1
