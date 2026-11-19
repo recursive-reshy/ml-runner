@@ -1,0 +1,6 @@
+[project]
+name = "hello-gpu"
+version = "0.1.0"
+description = "Smallest training repo that follows the ml-runner run contract"
+requires-python = ">=3.10"
+dependencies = []
