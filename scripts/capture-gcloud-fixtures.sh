@@ -87,6 +87,7 @@ run machine_types_g2        compute machine-types list "$P" --filter="name=g2-st
 
 # Error samples (still read-only): stderr text for the classifier.
 run err_bucket_missing      storage buckets describe "gs://mlr-no-such-bucket-$RANDOM$RANDOM" "$P" "$J"
+run err_object_missing      storage objects describe "gs://$BUCKET/sources/mlr-no-such-object-$RANDOM$RANDOM.tar.gz" "$P" "$J"
 run err_sa_missing          iam service-accounts describe "no-such-sa@$PROJECT.iam.gserviceaccount.com" "$P" "$J"
 run err_instance_missing    compute instances describe mlr-no-such-instance --zone="$REGION-a" "$P" "$J"
 

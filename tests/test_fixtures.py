@@ -43,9 +43,9 @@ def test_version_fixture_has_the_sdk_version_key() -> None:
 
 @pytest.mark.parametrize(
     "name",
-    [ "not_found", "not_found_bucket", "not_found_service_account", "not_found_role" ]
+    [ "not_found", "not_found_bucket", "not_found_service_account", "not_found_role", "not_found_object" ]
 )
-def test_real_not_found_stderr_is_classified( name: str ) -> None:
+def test_not_found_stderr_is_classified( name: str ) -> None:
     assert classify_error( 1, ( STDERR / f"{name}.txt" ).read_text() ) == "not_found"
 
 def test_quota_fixtures_have_the_metrics_doctor_reads() -> None:

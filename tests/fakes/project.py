@@ -12,7 +12,7 @@ CONDITION = {
     "expression": 'resource.name.extract("instances/{name}").startsWith("mlr-")',
     "title": "mlr-instances-only"
 }
-MUTATING_WORDS = { "create", "enable", "add-iam-policy-binding", "delete", "set-iam-policy" }
+MUTATING_WORDS = { "create", "enable", "add-iam-policy-binding", "delete", "set-iam-policy", "cp" }
 
 def fixture( name: str ) -> object:
     return json.loads( ( FIXTURES / f"{name}.json" ).read_text() )
