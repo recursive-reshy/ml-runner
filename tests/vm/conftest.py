@@ -1,12 +1,13 @@
 import importlib.util
 import json
 import os
+from typing import Any
 from pathlib import Path
 from types import ModuleType
 
 import pytest
 
-from vmsupport import FAKE_GCLOUD, FAKE_GIT, JOB, FakeBin
+from vmsupport import BUCKET, FAKE_GCLOUD, FAKE_GIT, JOB, FakeBin, launcher_record
 
 AGENT = Path( __file__ ).parents[ 2 ] / "src" / "ml_runner" / "vm" / "agent.py"
 
@@ -55,3 +56,29 @@ def metadata_file( tmp_path: Path, monkeypatch: pytest.MonkeyPatch ) -> Path:
     monkeypatch.setenv( "MLR_METADATA_FILE", str( path ) )
 
     return path
+
+@pytest.fixture
+def job_runner( agent: ModuleType, home: Path, fake_bin: FakeBin, tmp_path: Path, monkeypatch: pytest.MonkeyPatch ):
+    for variable, value in {
+        "MLR_LOG_SYNC_SECONDS": "30",
+        "MLR_DATA_SYNC_SECONDS": "30",
+        "MLR_RETRY_SECONDS": "0",
+        "MLR_KILL_GRACE_SECONDS": "5"
+    }.items():
+        monkeypatch.setenv( variable, value )
+
+    source_dir = tmp_path / "source"
+    source_dir.mkdir()
+
+    def run( runs: list[ dict[ str, Any ] ], **overrides: Any ) -> Any:
+        job = agent.parse_job( json.dumps( { **JOB, "runs": runs, **overrides } ) )
+        for run in runs:
+            record = launcher_record( run[ "run_id" ], run[ "experiment" ] )
+            ( tmp_path / "record.json" ).write_text( json.dumps( record ) )
+            fake_bin.put( f"{BUCKET}/runs/exp/{run[ 'run_id' ]}/run.json", tmp_path / "record.json" )
+        metadata = agent.Metadata( job = job, instance = "mlr-vm", zone = "asia-southeast1-a" )
+
+        return agent.run_job( metadata, home, source_dir, agent.Environment( prefix = [], path_prepend = None ) )
+
+    return run
+

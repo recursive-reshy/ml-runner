@@ -1,6 +1,7 @@
 import stat
 import sys
 from pathlib import Path
+from typing import Any
 
 # A gcloud that keeps a "bucket" in a local folder: gs://<bucket>/<path> is $FAKE_BUCKET/<bucket>/<path>.
 # Every call's argv is logged. FAKE_GCLOUD_FAIL is a comma-separated list of substrings (or `*`) that make a call
@@ -65,6 +66,8 @@ if (( calls <= ${FAKE_NVIDIA_FAILS:-0} )); then
     exit 1
 fi
 """
+
+BUCKET = "my-bucket"
 
 class FakeBin:
     def __init__( self, root: Path ) -> None:
@@ -137,3 +140,12 @@ def launcher_record( run_id: str, experiment: str ) -> dict:
         "duration_seconds": None,
         "message": None
     }
+
+def python_command( code: str ) -> list[ str ]:
+    return [ sys.executable, "-c", code ]
+
+def make_runs( *commands: list[ str ] ) -> list[ dict[ str, Any ] ]:
+    return [
+        { "run_id": f"R{index}", "experiment": "exp", "command": command }
+        for index, command in enumerate( commands, start = 1 )
+    ]

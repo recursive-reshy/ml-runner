@@ -63,6 +63,14 @@ TIMED_OUT = "timed_out"
 SKIPPED_MESSAGE = "skipped after an earlier failure"
 TIMED_OUT_MESSAGE = "job exceeded max hours"
 CANCELLED_MESSAGE = "job cancelled"
+PREEMPTED = "preempted"
+PROVISIONING = "provisioning"
+PREEMPTED_MESSAGE = "VM preempted"
+ENDED_EARLY_MESSAGE = "job ended early"
+OPEN_STATUSES = { PROVISIONING, RUNNING }
+DONE = "done"
+FINALIZE_BUDGET_SECONDS = 25
+FINALIZE_VARIABLE = "MLR_FINALIZE_SECONDS"
 
 class AgentError( Exception ):
     # What `run.json` shows when this error stops a job before its runs start.
@@ -120,6 +128,8 @@ class State:
     job_id: str
     phase: str
     current_run: str | None = None
+    # Wall-clock seconds (time.time()) when the agent started, so `finalize` can tell a job past its limit.
+    started_at: float | None = None
 
 # Bucket paths. The CLI builds the same ones in layout.py; a drift test keeps them equal.
 def source_uri( bucket: str, sha256: str ) -> str:
@@ -195,6 +205,11 @@ def write_state( home: Path, state: State ) -> None:
     temporary.write_text( json.dumps( asdict( state ) ) )
     temporary.replace( target )
 
+def advance( home: Path, job_id: str, phase: str, current_run: str | None = None ) -> None:
+    previous = read_state( home )
+    started_at = previous.started_at if previous is not None else time.time()
+    write_state( home, State( job_id = job_id, phase = phase, current_run = current_run, started_at = started_at ) )
+
 def read_state( home: Path ) -> State | None:
     target = home / STATE_FILE
     if not target.exists():
@@ -202,9 +217,11 @@ def read_state( home: Path ) -> State | None:
 
     return State( **json.loads( target.read_text() ) )
 
-def run_command( argv: list[ str ], step: str, cwd: Path | None = None ) -> None:
+def run_command( argv: list[ str ], step: str, cwd: Path | None = None, timeout: float | None = None ) -> None:
     try:
-        completed = subprocess.run( argv, capture_output = True, text = True, cwd = cwd )
+        completed = subprocess.run( argv, capture_output = True, text = True, cwd = cwd, timeout = timeout )
+    except subprocess.TimeoutExpired as error:
+        raise AgentError( f"{step} timed out" ) from error
     except OSError as error:
         raise AgentError( f"{step} failed: {error}" ) from error
 
@@ -366,14 +383,15 @@ def retry( action: Callable[ [], None ], attempts: int ) -> bool:
 
     return False
 
-def upload_file( path: Path, uri: str ) -> None:
-    run_command( [ "gcloud", "storage", "cp", str( path ), uri ], f"upload {path.name}" )
+def upload_file( path: Path, uri: str, timeout: float | None = None ) -> None:
+    run_command( [ "gcloud", "storage", "cp", str( path ), uri ], f"upload {path.name}", timeout = timeout )
 
 def sync_log( job: Job, run: JobRun, home: Path ) -> None:
     upload_file( run_run_dir( home, run ) / RUN_LOG, log_uri( job, run ) )
 
-def sync_folder( local: Path, uri: str ) -> None:
-    run_command( [ "gcloud", "storage", "rsync", "-r", str( local ), uri ], f"sync {local.name}" )
+def sync_folder( local: Path, uri: str, timeout: float | None = None ) -> None:
+    argv = [ "gcloud", "storage", "rsync", "-r", str( local ), uri ]
+    run_command( argv, f"sync {local.name}", timeout = timeout )
 
 def sync_data( job: Job, run: JobRun, home: Path ) -> None:
     sync_folder( run_run_dir( home, run ) / "outputs", outputs_uri( job, run ) )
@@ -405,14 +423,16 @@ def update_record(
     run: JobRun,
     home: Path,
     changes: dict[ str, Any ],
-    times: dict[ str, Any ] | None = None
+    times: dict[ str, Any ] | None = None,
+    attempts: int = FINAL_SYNC_ATTEMPTS,
+    timeout: float | None = None
 ) -> None:
     values = load_record( job, run, home )
     values.update( changes )
     values[ "times" ].update( times or {} )
     path = run_run_dir( home, run ) / RUN_RECORD
     path.write_text( json.dumps( values, indent = RECORD_INDENT ) )
-    if not retry( lambda: upload_file( path, record_uri( job, run ) ), FINAL_SYNC_ATTEMPTS ):
+    if not retry( partial( upload_file, path, record_uri( job, run ), timeout ), attempts ):
         log( f"could not upload the record of {run.run_id}" )
 
 def mark_runs( job: Job, runs: list[ JobRun ], home: Path, status: str, message: str ) -> None:
@@ -525,7 +545,7 @@ def run_one(
     log_path = run_dir / RUN_LOG
     log_path.write_text( "" )
 
-    write_state( home, State( job_id = job.job_id, phase = RUNNING, current_run = run.run_id ) )
+    advance( home, job.job_id, RUNNING, run.run_id )
     started = utc_now()
     update_record( job, run, home, { "status": RUNNING }, { "started": started.strftime( TIME_FORMAT ) } )
     log( f"run {run.run_id}: {' '.join( run.command )}" )
@@ -602,18 +622,18 @@ def self_delete( metadata: Metadata ) -> None:
             log( str( shutdown_error ) )
 
 def finish( metadata: Metadata, home: Path ) -> None:
-    write_state( home, State( job_id = metadata.job.job_id, phase = "done" ) )
+    advance( home, metadata.job.job_id, DONE )
     retry( lambda: upload_file( home / AGENT_LOG, agent_log_uri( metadata.job ) ), FINAL_SYNC_ATTEMPTS )
     self_delete( metadata )
 
 def prepare_and_run( metadata: Metadata, home: Path ) -> None:
     job = metadata.job
     try:
-        write_state( home, State( job_id = job.job_id, phase = "fetching" ) )
+        advance( home, job.job_id, "fetching" )
         source_dir = fetch_source( job, home )
-        write_state( home, State( job_id = job.job_id, phase = "installing" ) )
+        advance( home, job.job_id, "installing" )
         environment = install_dependencies( source_dir )
-        write_state( home, State( job_id = job.job_id, phase = "waiting_for_gpu" ) )
+        advance( home, job.job_id, "waiting_for_gpu" )
         wait_for_gpu( job.gpu )
     except AgentError as error:
         log( f"job cannot start: {error}" )
@@ -637,18 +657,101 @@ def start() -> int:
 
     return 0
 
-def main( argv: list[ str ] ) -> int:
-    if argv[ 1: 2 ] != [ "start" ]:
-        print( "usage: agent.py start", file = sys.stderr )
+def closing_status( job: Job, state: State, reason: str | None ) -> tuple[ str, str ]:
+    if is_cancelled( job ):
+        return CANCELLED, CANCELLED_MESSAGE
 
-        return 2
+    limit_seconds = seconds_from( MAX_SECONDS_VARIABLE, job.max_hours * SECONDS_PER_HOUR )
+    if state.started_at is not None and time.time() - state.started_at >= limit_seconds:
+        return TIMED_OUT, TIMED_OUT_MESSAGE
+
+    return PREEMPTED, reason or PREEMPTED_MESSAGE
+
+def close_record( job: Job, run: JobRun, home: Path, status: str, message: str, deadline: float ) -> None:
+    try:
+        # A run that already finished normally keeps its own result.
+        if load_record( job, run, home )[ "status" ] not in OPEN_STATUSES:
+            return
+
+        update_record(
+            job,
+            run,
+            home,
+            { "status": status, "message": message },
+            { "finished": utc_now().strftime( TIME_FORMAT ) },
+            attempts = 1,
+            timeout = max( deadline - time.monotonic(), 0 )
+        )
+    except AgentError as error:
+        log( f"cannot record {run.run_id}: {error}" )
+
+def last_sync( job: Job, run: JobRun, home: Path, deadline: float ) -> None:
+    run_dir = run_run_dir( home, run )
+    steps: list[ tuple[ str, Callable[ [ float ], None ] ] ] = [
+        ( RUN_LOG, partial( upload_file, run_dir / RUN_LOG, log_uri( job, run ) ) ),
+        ( "outputs", partial( sync_folder, run_dir / "outputs", outputs_uri( job, run ) ) ),
+        ( "checkpoints", partial( sync_folder, run_dir / "checkpoints", checkpoints_uri( job, run ) ) )
+    ]
+
+    for name, action in steps:
+        time_left = deadline - time.monotonic()
+        if time_left <= 0:
+            log( f"final sync of {name} skipped: out of time" )
+
+            continue
+
+        try:
+            action( time_left )
+        except AgentError as error:
+            log( f"final sync of {name} skipped: out of time or failed ({error})" )
+
+def finalize( reason: str | None ) -> int:
+    home = home_dir()
+    state = read_state( home )
+    if state is None or state.phase == DONE:
+        return 0
+
+    metadata = read_metadata()
+    job = metadata.job
+    deadline = time.monotonic() + seconds_from( FINALIZE_VARIABLE, FINALIZE_BUDGET_SECONDS )
+    status, message = closing_status( job, state, reason )
+    run_ids = [ run.run_id for run in job.runs ]
+    current_index = run_ids.index( state.current_run ) if state.current_run in run_ids else None
+    remaining = job.runs if current_index is None else job.runs[ current_index + 1: ]
+
+    # Records first: they are small and matter most when the VM is about to disappear.
+    if current_index is not None:
+        close_record( job, job.runs[ current_index ], home, status, message, deadline )
+    for run in remaining:
+        close_record( job, run, home, status, ENDED_EARLY_MESSAGE, deadline )
+    if current_index is not None:
+        last_sync( job, job.runs[ current_index ], home, deadline )
+
+    if reason is not None:
+        finish( metadata, home )
+
+    advance( home, job.job_id, DONE )
+
+    return 0
+
+def main( argv: list[ str ] ) -> int:
+    command = argv[ 1: 2 ]
+    reason = argv[ 3 ] if argv[ 2: 3 ] == [ "--reason" ] and len( argv ) > 3 else None
 
     try:
-        return start()
+        if command == [ "start" ]:
+            return start()
+
+        if command == [ "finalize" ]:
+            return finalize( reason )
     except AgentError as error:
         print( f"agent: {error}", file = sys.stderr )
 
         return 1
+
+    print( "usage: agent.py start | finalize [--reason TEXT]", file = sys.stderr )
+
+    return 2
 
 if __name__ == "__main__":
     sys.exit( main( sys.argv ) )

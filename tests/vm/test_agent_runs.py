@@ -8,44 +8,10 @@ from typing import Any
 
 import pytest
 
-from vmsupport import JOB, FakeBin, launcher_record
+from vmsupport import JOB, FakeBin, make_runs, python_command
 
 BUCKET = "my-bucket"
 JOB_ID = JOB[ "job_id" ]
-
-def python_command( code: str ) -> list[ str ]:
-    return [ sys.executable, "-c", code ]
-
-def make_runs( *commands: list[ str ] ) -> list[ dict[ str, Any ] ]:
-    return [
-        { "run_id": f"R{index}", "experiment": "exp", "command": command }
-        for index, command in enumerate( commands, start = 1 )
-    ]
-
-@pytest.fixture
-def job_runner( agent: ModuleType, home: Path, fake_bin: FakeBin, tmp_path: Path, monkeypatch: pytest.MonkeyPatch ):
-    for variable, value in {
-        "MLR_LOG_SYNC_SECONDS": "30",
-        "MLR_DATA_SYNC_SECONDS": "30",
-        "MLR_RETRY_SECONDS": "0",
-        "MLR_KILL_GRACE_SECONDS": "5"
-    }.items():
-        monkeypatch.setenv( variable, value )
-
-    source_dir = tmp_path / "source"
-    source_dir.mkdir()
-
-    def run( runs: list[ dict[ str, Any ] ], **overrides: Any ) -> Any:
-        job = agent.parse_job( json.dumps( { **JOB, "runs": runs, **overrides } ) )
-        for run in runs:
-            record = launcher_record( run[ "run_id" ], run[ "experiment" ] )
-            ( tmp_path / "record.json" ).write_text( json.dumps( record ) )
-            fake_bin.put( f"{BUCKET}/runs/exp/{run[ 'run_id' ]}/run.json", tmp_path / "record.json" )
-        metadata = agent.Metadata( job = job, instance = "mlr-vm", zone = "asia-southeast1-a" )
-
-        return agent.run_job( metadata, home, source_dir, agent.Environment( prefix = [], path_prepend = None ) )
-
-    return run
 
 def record( fake_bin: FakeBin, run_id: str ) -> dict[ str, Any ]:
     return json.loads( fake_bin.read( f"{BUCKET}/runs/exp/{run_id}/run.json" ) )
