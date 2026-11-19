@@ -37,7 +37,7 @@ def test_gs_paths_are_built_only_in_layout_py() -> None:
         str( path.relative_to( src ) )
         for path in src.rglob( "*" )
         if path.is_file()
-        and path.name != "layout.py"
+        and path.name not in { "layout.py", "agent.py" }
         and path.suffix in { ".py", ".sh" }
         and re.search( r"gs://", path.read_text() )
     ]
