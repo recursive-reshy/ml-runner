@@ -1,10 +1,13 @@
+from collections.abc import Sequence
+
 import pytest
 
 from ml_runner.config import Defaults
 from ml_runner.errors import MlRunnerError, UsageError
-from ml_runner.gcloud import Gcloud
+from ml_runner.gcloud import Completed, Gcloud
 from ml_runner.setup import (
     DEFAULT_REGION,
+    PROPAGATION_ATTEMPTS,
     InitSettings,
     build_config,
     build_steps,
@@ -157,6 +160,46 @@ def test_a_missing_binding_on_an_existing_bucket_is_added() -> None:
     register_mutations( fake )
     run_steps( build_steps( make_gcloud( fake ), SETTINGS ), always_yes, is_dry_run = False )
     assert [ call[ 3 ] for call in mutating_calls( fake ) ] == [ "add-iam-policy-binding" ]
+
+# Real stderr seen right after creating the service account (IAM is eventually consistent).
+PROPAGATING_STDERR = (
+    f"ERROR: (gcloud.storage.buckets.add-iam-policy-binding) HTTPError 400: Service account {SERVICE_ACCOUNT} "
+    "does not exist."
+)
+
+class SlowToPropagate:
+    def __init__( self, fake: FakeGcloud, failures: int ) -> None:
+        self.fake = fake
+        self.failures_left = failures
+
+    def __call__( self, argv: Sequence[ str ], *, timeout: float ) -> Completed:
+        if "add-iam-policy-binding" in argv and self.failures_left > 0:
+            self.failures_left -= 1
+            return Completed( 1, "", PROPAGATING_STDERR )
+
+        return self.fake( argv, timeout = timeout )
+
+def test_a_binding_is_retried_while_the_new_service_account_propagates() -> None:
+    fake = FakeGcloud()
+    register_project( fake, has_bucket_binding = False )
+    register_mutations( fake )
+    runner = SlowToPropagate( fake, failures = 2 )
+    pauses: list[ float ] = []
+    gcloud = Gcloud( project = PROJECT, runner = runner, echo = print )
+    steps = build_steps( gcloud, SETTINGS, sleep = pauses.append )
+    run_steps( steps, always_yes, is_dry_run = False )
+    assert len( pauses ) == 2
+    assert [ call[ 3 ] for call in mutating_calls( fake ) ] == [ "add-iam-policy-binding" ]
+
+def test_a_binding_gives_up_when_the_service_account_never_appears() -> None:
+    fake = FakeGcloud()
+    register_project( fake, has_bucket_binding = False )
+    register_mutations( fake )
+    runner = SlowToPropagate( fake, failures = PROPAGATION_ATTEMPTS + 5 )
+    gcloud = Gcloud( project = PROJECT, runner = runner, echo = print )
+    steps = build_steps( gcloud, SETTINGS, sleep = lambda seconds: None )
+    with pytest.raises( MlRunnerError, match = "does not exist" ):
+        run_steps( steps, always_yes, is_dry_run = False )
 
 def test_declining_the_confirmation_changes_nothing() -> None:
     fake = FakeGcloud()

@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -19,6 +20,9 @@ CONDITION_EXPRESSION = 'resource.name.extract("instances/{name}").startsWith("ml
 CONDITION_TITLE = "mlr-instances-only"
 UNSET_PROJECT_VALUES = ( "", "(unset)" )
 DEFAULT_GPU_ACCELERATOR = "nvidia-tesla-t4"
+PROPAGATION_ATTEMPTS = 8
+PROPAGATION_DELAY_SECONDS = 5.0
+PROPAGATION_MARKER = "does not exist"
 
 StepStatus = Literal[ "exists", "created", "planned" ]
 
@@ -78,6 +82,21 @@ def has_binding( policy: Any, role: str, member: str, condition_title: str | Non
 
 def _taken_bucket_error( bucket: str ) -> UsageError:
     return UsageError( f"The bucket name {bucket} is taken by another project. Choose another with --bucket." )
+
+# IAM is eventually consistent: a binding made right after the service account is created can
+# fail with "does not exist" (seen live, exit 1, kind unknown), so it is retried for a short while.
+def _retry_while_propagating( apply: Callable[ [], None ], sleep: Callable[ [ float ], None ] ) -> None:
+    for attempt in range( PROPAGATION_ATTEMPTS ):
+        try:
+            apply()
+        except GcloudError as error:
+            is_last = attempt == PROPAGATION_ATTEMPTS - 1
+            if PROPAGATION_MARKER not in error.stderr or is_last:
+                raise
+
+            sleep( PROPAGATION_DELAY_SECONDS )
+        else:
+            return
 
 def _api_step( gcloud: Gcloud, api: str ) -> Step:
     def is_done() -> bool:
@@ -140,7 +159,7 @@ def _service_account_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
 
     return Step( f"Service account {SERVICE_ACCOUNT_NAME}", is_done, apply )
 
-def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings, sleep: Callable[ [ float ], None ] ) -> Step:
     uri = bucket_uri( settings.bucket )
     member = f"serviceAccount:{service_account_email( settings.project )}"
 
@@ -149,7 +168,7 @@ def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
 
         return has_binding( policy, BUCKET_ROLE, member )
 
-    def apply() -> None:
+    def add_binding() -> None:
         gcloud.run(
             "storage",
             "buckets",
@@ -159,6 +178,9 @@ def _bucket_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
             f"--role={BUCKET_ROLE}",
             mutating = True
         )
+
+    def apply() -> None:
+        _retry_while_propagating( add_binding, sleep )
 
     return Step( f"Grant {BUCKET_ROLE} on {uri}", is_done, apply )
 
@@ -180,7 +202,7 @@ def _role_step( gcloud: Gcloud ) -> Step:
 
     return Step( f"Custom role {SELF_DELETE_ROLE_ID}", is_done, apply )
 
-def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
+def _project_binding_step( gcloud: Gcloud, settings: InitSettings, sleep: Callable[ [ float ], None ] ) -> Step:
     member = f"serviceAccount:{service_account_email( settings.project )}"
     role = f"projects/{settings.project}/roles/{SELF_DELETE_ROLE_ID}"
 
@@ -189,7 +211,7 @@ def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
 
         return has_binding( policy, role, member, CONDITION_TITLE )
 
-    def apply() -> None:
+    def add_binding() -> None:
         gcloud.run(
             "projects",
             "add-iam-policy-binding",
@@ -199,6 +221,9 @@ def _project_binding_step( gcloud: Gcloud, settings: InitSettings ) -> Step:
             f"--condition=expression={CONDITION_EXPRESSION},title={CONDITION_TITLE}",
             mutating = True
         )
+
+    def apply() -> None:
+        _retry_while_propagating( add_binding, sleep )
 
     return Step( f"Self-delete binding for mlr-* instances ({SELF_DELETE_ROLE_ID})", is_done, apply )
 
@@ -234,7 +259,11 @@ def build_config( settings: InitSettings, zone: str, existing: Config | None ) -
     )
 
 # Steps 1-7 of TRD §5, in order. Nothing is changed until `run_steps`.
-def build_steps( gcloud: Gcloud, settings: InitSettings ) -> list[ Step ]:
+def build_steps(
+    gcloud: Gcloud,
+    settings: InitSettings,
+    sleep: Callable[ [ float ], None ] = time.sleep
+) -> list[ Step ]:
     try:
         gcloud.json( "projects", "describe", settings.project )
     except GcloudError as error:
@@ -247,9 +276,9 @@ def build_steps( gcloud: Gcloud, settings: InitSettings ) -> list[ Step ]:
         *( _api_step( gcloud, api ) for api in REQUIRED_APIS ),
         _bucket_step( gcloud, settings ),
         _service_account_step( gcloud, settings ),
-        _bucket_binding_step( gcloud, settings ),
+        _bucket_binding_step( gcloud, settings, sleep ),
         _role_step( gcloud ),
-        _project_binding_step( gcloud, settings )
+        _project_binding_step( gcloud, settings, sleep )
     ]
 
 # Reads everything first, asks once if anything would change, then applies the missing steps.
