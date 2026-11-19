@@ -18,6 +18,21 @@ fi
 exit "${FAKE_GIT_EXIT:-0}"
 """
 
+# A tool that logs its argv to <name>.log and exits FAKE_<NAME>_EXIT (default 0).
+LOGGING_TOOL = """#!/usr/bin/env bash
+echo "$*" >> "$FAKE_CALLS/NAME.log"
+exit "${FAKE_UPPER_EXIT:-0}"
+"""
+
+# Fails its first FAKE_NVIDIA_FAILS calls, like a driver that is still installing.
+FAKE_NVIDIA_SMI = """#!/usr/bin/env bash
+echo "$*" >> "$FAKE_CALLS/nvidia-smi.log"
+calls=$(wc -l < "$FAKE_CALLS/nvidia-smi.log")
+if (( calls <= ${FAKE_NVIDIA_FAILS:-0} )); then
+    exit 1
+fi
+"""
+
 class FakeBin:
     def __init__( self, root: Path ) -> None:
         self.bin = root / "bin"
@@ -29,6 +44,10 @@ class FakeBin:
         path = self.bin / name
         path.write_text( script )
         path.chmod( path.stat().st_mode | stat.S_IEXEC )
+
+    def add_logging( self, name: str ) -> None:
+        upper = name.upper().replace( "-", "_" )
+        self.add( name, LOGGING_TOOL.replace( "NAME", name ).replace( "UPPER", upper ) )
 
     def lines( self, name: str ) -> list[ str ]:
         log = self.calls / f"{name}.log"

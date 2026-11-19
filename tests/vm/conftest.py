@@ -32,7 +32,8 @@ def fake_bin( tmp_path: Path, monkeypatch: pytest.MonkeyPatch ) -> FakeBin:
     fake = FakeBin( _make( tmp_path / "fakes" ) )
     fake.add( "gcloud", FAKE_GCLOUD )
     fake.add( "git", FAKE_GIT )
-    monkeypatch.setenv( "PATH", f"{fake.bin}{os.pathsep}{os.environ[ 'PATH' ]}" )
+    # Only the fakes and the system tools: a developer's real uv or nvidia-smi must never be found.
+    monkeypatch.setenv( "PATH", os.pathsep.join( [ str( fake.bin ), "/usr/bin", "/bin" ] ) )
     monkeypatch.setenv( "FAKE_CALLS", str( fake.calls ) )
 
     return fake

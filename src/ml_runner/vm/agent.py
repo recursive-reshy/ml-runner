@@ -1,8 +1,10 @@
 # On-VM agent: standard library only, Python >= 3.10, imports nothing from the CLI (ADR 0006).
 import json
 import os
+import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -21,8 +23,23 @@ ZONE_KEY = "zone"
 STATE_FILE = "state.json"
 SOURCE_DIR = "src"
 SOURCE_ARCHIVE = "source.tar.gz"
+UV_INSTALL_URL = "https://astral.sh/uv/install.sh"
+UV_USER_BIN = Path( ".local" ) / "bin"
+INSTALL_FAILED = "dependency install failed"
+GPU_NOT_READY = "GPU driver not ready"
+GPU_POLL_SECONDS = 10
+GPU_WAIT_SECONDS = 600
+GPU_POLL_VARIABLE = "MLR_GPU_POLL_SECONDS"
+GPU_WAIT_VARIABLE = "MLR_GPU_WAIT_SECONDS"
+NO_GPU = "none"
 
 class AgentError( Exception ):
+    pass
+
+class InstallError( AgentError ):
+    pass
+
+class GpuError( AgentError ):
     pass
 
 @dataclass
@@ -54,6 +71,11 @@ class Metadata:
     job: Job
     instance: str
     zone: str
+
+@dataclass
+class Environment:
+    prefix: list[ str ]
+    path_prepend: str | None
 
 @dataclass
 class State:
@@ -138,9 +160,9 @@ def read_state( home: Path ) -> State | None:
 
     return State( **json.loads( target.read_text() ) )
 
-def run_command( argv: list[ str ], step: str ) -> None:
+def run_command( argv: list[ str ], step: str, cwd: Path | None = None ) -> None:
     try:
-        completed = subprocess.run( argv, capture_output = True, text = True )
+        completed = subprocess.run( argv, capture_output = True, text = True, cwd = cwd )
     except OSError as error:
         raise AgentError( f"{step} failed: {error}" ) from error
 
@@ -165,6 +187,67 @@ def fetch_source( job: Job, home: Path ) -> Path:
     run_command( [ "tar", "-xzf", str( archive ), "-C", str( source_dir ) ], "fetch (extract)" )
 
     return source_dir
+
+def install_uv() -> None:
+    # pipefail: a failed download must not look like an empty, successful script.
+    script = f"set -o pipefail; curl -LsSf {UV_INSTALL_URL} | sh"
+    try:
+        run_command( [ "bash", "-c", script ], "uv installer" )
+    except AgentError:
+        run_command( [ "python3", "-m", "pip", "install", "--user", "uv" ], "uv pip install" )
+
+    os.environ[ "PATH" ] = os.pathsep.join( [ str( Path.home() / UV_USER_BIN ), os.environ[ "PATH" ] ] )
+
+def ensure_uv() -> None:
+    if shutil.which( "uv" ) is not None:
+        return
+
+    try:
+        install_uv()
+    except AgentError as error:
+        raise InstallError( f"{INSTALL_FAILED}: {error}" ) from error
+
+def install_dependencies( source_dir: Path ) -> Environment:
+    ensure_uv()
+    has_project = ( source_dir / "pyproject.toml" ).exists() or ( source_dir / "uv.lock" ).exists()
+    has_requirements = ( source_dir / "requirements.txt" ).exists()
+
+    if not has_project and not has_requirements:
+        raise InstallError( f"{INSTALL_FAILED}: no pyproject.toml or requirements.txt" )
+
+    try:
+        if has_project:
+            sync = [ "uv", "sync", "--frozen" ] if ( source_dir / "uv.lock" ).exists() else [ "uv", "sync" ]
+            run_command( sync, "uv sync", cwd = source_dir )
+
+            return Environment( prefix = [ "uv", "run", "--no-sync", "--" ], path_prepend = None )
+
+        run_command( [ "uv", "venv" ], "uv venv", cwd = source_dir )
+        run_command( [ "uv", "pip", "install", "-r", "requirements.txt" ], "uv pip install", cwd = source_dir )
+    except AgentError as error:
+        raise InstallError( f"{INSTALL_FAILED}: {error}" ) from error
+
+    return Environment( prefix = [], path_prepend = str( source_dir / ".venv" / "bin" ) )
+
+def is_gpu_ready() -> bool:
+    try:
+        return subprocess.run( [ "nvidia-smi" ], capture_output = True ).returncode == 0
+    except OSError:
+        return False
+
+def wait_for_gpu( gpu: str ) -> None:
+    if gpu == NO_GPU:
+        return
+
+    poll_seconds = float( os.environ.get( GPU_POLL_VARIABLE, GPU_POLL_SECONDS ) )
+    wait_seconds = float( os.environ.get( GPU_WAIT_VARIABLE, GPU_WAIT_SECONDS ) )
+    deadline = time.monotonic() + wait_seconds
+
+    while not is_gpu_ready():
+        if time.monotonic() >= deadline:
+            raise GpuError( GPU_NOT_READY )
+
+        time.sleep( poll_seconds )
 
 def start() -> int:
     home = home_dir()
