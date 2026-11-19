@@ -42,7 +42,7 @@ mkdir -p "$OUT/stderr"
 
 # Allow-list: a command is run only if it contains one of these read-only verbs
 # and none of the mutating ones.
-READ_VERBS=" version list describe get-iam-policy get-value cat "
+READ_VERBS=" version list describe describe-from-family get-iam-policy get-value cat "
 MUTATING=" create delete add-iam-policy-binding remove-iam-policy-binding enable disable update set-iam-policy cp rsync mv rm "
 
 run() { # run <name> <gcloud args...>

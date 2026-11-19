@@ -1,44 +1,128 @@
 [
   {
-    "name": "nvidia-l4",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a",
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA L4",
+    "id": "20009",
     "kind": "compute#acceleratorType",
-    "description": "nvidia-l4",
-    "maximumCardsPerInstance": 1
+    "maximumCardsPerInstance": 8,
+    "name": "nvidia-l4",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a/acceleratorTypes/nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a"
   },
   {
-    "name": "nvidia-l4",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA A100 40GB",
+    "id": "10022",
     "kind": "compute#acceleratorType",
-    "description": "nvidia-l4",
-    "maximumCardsPerInstance": 1
+    "maximumCardsPerInstance": 16,
+    "name": "nvidia-tesla-a100",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a/acceleratorTypes/nvidia-tesla-a100",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a"
   },
   {
-    "name": "nvidia-l4",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c",
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA T4",
+    "id": "10019",
     "kind": "compute#acceleratorType",
-    "description": "nvidia-l4",
-    "maximumCardsPerInstance": 1
-  },
-  {
+    "maximumCardsPerInstance": 4,
     "name": "nvidia-tesla-t4",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c",
-    "kind": "compute#acceleratorType",
-    "description": "nvidia-tesla-t4",
-    "maximumCardsPerInstance": 1
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a/acceleratorTypes/nvidia-tesla-t4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-a"
   },
   {
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA L4",
+    "id": "20009",
+    "kind": "compute#acceleratorType",
+    "maximumCardsPerInstance": 8,
+    "name": "nvidia-l4",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b/acceleratorTypes/nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b"
+  },
+  {
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA A100 40GB",
+    "id": "10022",
+    "kind": "compute#acceleratorType",
+    "maximumCardsPerInstance": 16,
+    "name": "nvidia-tesla-a100",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b/acceleratorTypes/nvidia-tesla-a100",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b"
+  },
+  {
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA T4",
+    "id": "10019",
+    "kind": "compute#acceleratorType",
+    "maximumCardsPerInstance": 4,
     "name": "nvidia-tesla-t4",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
-    "kind": "compute#acceleratorType",
-    "description": "nvidia-tesla-t4",
-    "maximumCardsPerInstance": 1
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b/acceleratorTypes/nvidia-tesla-t4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b"
   },
   {
-    "name": "nvidia-tesla-t4-vws",
-    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-b",
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA L4",
+    "id": "20009",
     "kind": "compute#acceleratorType",
-    "description": "nvidia-tesla-t4-vws",
-    "maximumCardsPerInstance": 1
+    "maximumCardsPerInstance": 8,
+    "name": "nvidia-l4",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c/acceleratorTypes/nvidia-l4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c"
+  },
+  {
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA A100 40GB",
+    "id": "10022",
+    "kind": "compute#acceleratorType",
+    "maximumCardsPerInstance": 16,
+    "name": "nvidia-tesla-a100",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c/acceleratorTypes/nvidia-tesla-a100",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c"
+  },
+  {
+    "creationTimestamp": "1969-12-31T16:00:00.000-08:00",
+    "description": "NVIDIA T4",
+    "id": "10019",
+    "kind": "compute#acceleratorType",
+    "maximumCardsPerInstance": 4,
+    "name": "nvidia-tesla-t4",
+    "resourceMetadata": {
+      "apiVersion": "2026-09-01",
+      "resourceType": "compute.googleapis.com/AcceleratorType"
+    },
+    "selfLink": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c/acceleratorTypes/nvidia-tesla-t4",
+    "zone": "https://www.googleapis.com/compute/v1/projects/my-project/zones/asia-southeast1-c"
   }
 ]

@@ -1,4 +1,0 @@
-accelerator_types.json is hand-built, PROVISIONAL (task 2.3): the real `gcloud compute accelerator-types list`
-filtered with `zone~^<region>-` returned [] because `zone` is a URL (.../zones/<zone>). The URL form is
-confirmed; the rest of the shape follows gcloud's documented JSON. Replace with the real capture
-(`scripts/capture-gcloud-fixtures.sh --only accelerator_types`, anonymised) when it arrives.

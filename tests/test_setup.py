@@ -253,7 +253,7 @@ def zone_fake() -> FakeGcloud:
 
 def test_the_zone_is_the_first_alphabetical_one_offering_a_t4() -> None:
     fake = zone_fake()
-    assert choose_zone( make_gcloud( fake ), DEFAULT_REGION, None ) == "asia-southeast1-b"
+    assert choose_zone( make_gcloud( fake ), DEFAULT_REGION, None ) == "asia-southeast1-a"
 
 def test_the_zone_filter_is_not_anchored_because_gcloud_reports_the_zone_as_a_url() -> None:
     fake = zone_fake()

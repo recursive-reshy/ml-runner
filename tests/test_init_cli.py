@@ -123,7 +123,7 @@ def test_init_writes_the_config_and_prints_its_path( tmp_path: Path ) -> None:
     assert ( config.project, config.region, config.zone, config.bucket ) == (
         PROJECT,
         "asia-southeast1",
-        "asia-southeast1-b",
+        "asia-southeast1-a",
         BUCKET
     )
 
