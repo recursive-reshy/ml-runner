@@ -1,0 +1,9 @@
+{
+  "family": "debian-12",
+  "name": "debian-12-bookworm-v20261117",
+  "selfLink": "https://www.googleapis.com/compute/v1/projects/debian-cloud/global/images/debian-12-bookworm-v20261117",
+  "diskSizeGb": "10",
+  "architecture": "X86_64",
+  "status": "READY",
+  "description": "Debian, Debian GNU/Linux, 12 (bookworm), amd64 built on 20261117"
+}

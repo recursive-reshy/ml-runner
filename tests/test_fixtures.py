@@ -57,3 +57,11 @@ def test_quota_fixtures_have_the_metrics_doctor_reads() -> None:
     for metric in ( "NVIDIA_T4_GPUS", "PREEMPTIBLE_NVIDIA_T4_GPUS", "NVIDIA_L4_GPUS", "PREEMPTIBLE_NVIDIA_L4_GPUS" ):
         assert region_metrics[ metric ] == 1.0
     assert project_metrics[ "GPUS_ALL_REGIONS" ] == 0.0
+
+# TRD §10.1: no DLVM family is CPU-only, so CPU jobs boot the plain Debian 12 family.
+def test_the_cpu_image_family_exists_in_debian_cloud() -> None:
+    image = load( "image_debian12" )
+    assert isinstance( image, dict )
+    assert image[ "family" ] == "debian-12"
+    assert image[ "status" ] == "READY"
+    assert "/projects/debian-cloud/" in image[ "selfLink" ]
