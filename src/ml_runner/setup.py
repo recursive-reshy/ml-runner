@@ -7,6 +7,7 @@ from ml_runner.config import Config, Defaults
 from ml_runner.errors import MlRunnerError, UsageError
 from ml_runner.gcloud import Gcloud, GcloudError
 from ml_runner.layout import bucket_uri
+from ml_runner.machines import zones_offering
 
 DEFAULT_REGION = "asia-southeast1"
 REQUIRED_APIS = ( "compute.googleapis.com", "storage.googleapis.com" )
@@ -237,11 +238,7 @@ def choose_zone( gcloud: Gcloud, region: str, requested: str | None ) -> str:
         return requested
 
     offered = gcloud.json( "compute", "accelerator-types", "list", f"--filter=zone~{region}-" ) or []
-    zones = sorted(
-        accelerator[ "zone" ].rsplit( "/", 1 )[ -1 ]
-        for accelerator in offered
-        if accelerator[ "name" ] == DEFAULT_GPU_ACCELERATOR
-    )
+    zones = zones_offering( offered, DEFAULT_GPU_ACCELERATOR )
     if not zones:
         raise UsageError( f"No zone in {region} offers a T4 GPU. Try another --region." )
 
