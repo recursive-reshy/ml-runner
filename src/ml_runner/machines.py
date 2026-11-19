@@ -19,6 +19,8 @@ class MachineProfile:
     gpu: Gpu
     machine_type: str
     accelerator_type: str | None
+    # The name `compute accelerator-types list` uses, for finding zones; L4 has no flag but still has a name.
+    zone_accelerator: str | None
     image_project: str
     image_family: str
     installs_driver: bool
@@ -30,6 +32,7 @@ PROFILES: Mapping[ Gpu, MachineProfile ] = {
         gpu = "t4",
         machine_type = "n1-standard-4",
         accelerator_type = "nvidia-tesla-t4",
+        zone_accelerator = "nvidia-tesla-t4",
         image_project = CUDA_IMAGE_PROJECT,
         image_family = CUDA_IMAGE_FAMILY,
         installs_driver = True,
@@ -40,6 +43,7 @@ PROFILES: Mapping[ Gpu, MachineProfile ] = {
         gpu = "l4",
         machine_type = "g2-standard-4",
         accelerator_type = None,
+        zone_accelerator = "nvidia-l4",
         image_project = CUDA_IMAGE_PROJECT,
         image_family = CUDA_IMAGE_FAMILY,
         installs_driver = True,
@@ -50,6 +54,7 @@ PROFILES: Mapping[ Gpu, MachineProfile ] = {
         gpu = "none",
         machine_type = "e2-standard-4",
         accelerator_type = None,
+        zone_accelerator = None,
         image_project = CPU_IMAGE_PROJECT,
         image_family = CPU_IMAGE_FAMILY,
         installs_driver = False,

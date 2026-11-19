@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -6,12 +7,14 @@ import typer
 from ml_runner.config import Config, config_path, load_config
 from ml_runner.gcloud import Runner
 
-# Global options, available to commands as `ctx.obj`. `runner` is only set by tests, to swap in FakeGcloud.
+# Global options, available to commands as `ctx.obj`. `runner` and `ls_remote` are only set by tests,
+# to swap in FakeGcloud and to keep the git ref check off the network.
 @dataclass( frozen = True )
 class State:
     verbose: bool = False
     config_path: Path | None = None
     runner: Runner | None = None
+    ls_remote: Callable[ [ str, str ], str ] | None = None
 
 def get_config_path( ctx: typer.Context ) -> Path:
     state: State = ctx.obj

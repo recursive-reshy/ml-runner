@@ -43,6 +43,12 @@ def test_the_gpu_table_matches_the_trd() -> None:
         CPU_IMAGE_PROJECT
     )
 
+def test_zones_are_looked_up_by_the_accelerator_name_even_when_there_is_no_flag() -> None:
+    assert profile_for( "t4", None ).zone_accelerator == "nvidia-tesla-t4"
+    assert profile_for( "l4", None ).zone_accelerator == "nvidia-l4"
+    assert profile_for( "l4", None ).accelerator_type is None
+    assert profile_for( "none", None ).zone_accelerator is None
+
 def test_only_gpu_profiles_install_the_driver() -> None:
     assert profile_for( "t4", None ).installs_driver
     assert profile_for( "l4", None ).installs_driver
